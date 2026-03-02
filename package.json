@@ -1,0 +1,39 @@
+{
+  "name": "@livefolio/cli",
+  "version": "0.1.0",
+  "description": "Livefolio CLI",
+  "type": "module",
+  "bin": {
+    "livefolio": "dist/cli.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "start": "node dist/cli.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "livefolio",
+    "trading",
+    "cli"
+  ],
+  "author": "Livefolio",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/livefolio/cli.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "typescript": "^5.8.0"
+  }
+}
