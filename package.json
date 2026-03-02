@@ -30,6 +30,8 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@livefolio/sdk": "file:../sdk",
+    "@supabase/supabase-js": "^2.98.0",
     "commander": "^13.1.0"
   },
   "devDependencies": {
