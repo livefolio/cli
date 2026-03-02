@@ -2,6 +2,7 @@
 import { program } from "commander";
 import { loadEnvFile } from "./config.js";
 import { registerMarket } from "./commands/market/index.js";
+import { registerStrategy } from "./commands/strategy/index.js";
 
 const version =
   process.env.npm_package_version ?? (await import("../package.json", { with: { type: "json" } })).default.version;
@@ -17,5 +18,6 @@ program
   });
 
 registerMarket(program);
+registerStrategy(program);
 
 program.parse();

@@ -39,6 +39,12 @@ src/
       series.test.ts              # Tests for series action
       quote.ts                    # quotes <symbols...> action handler
       quote.test.ts               # Tests for quote action
+    strategy/
+      index.ts                    # "strategy" subcommand registration
+      get.ts                      # get <link_id> action handler
+      get.test.ts                 # Tests for get action
+      evaluate.ts                 # evaluate <link_id> action handler
+      evaluate.test.ts            # Tests for evaluate action
 ```
 
 ### Adding a new command
