@@ -37,6 +37,12 @@ livefolio --env .env.local market series SPY | head -5
 # SPY,2025-01-11T16:00:00Z,592.10
 # SPY,2025-01-12T16:00:00Z,588.50
 
+# Fetch a strategy definition
+livefolio --env .env.local strategy get bCicNI7OI2x
+
+# Evaluate a strategy (signals, allocation, indicators)
+livefolio --env .env.local strategy evaluate bCicNI7OI2x
+
 # With env vars exported, --env is not needed
 export SUPABASE_URL=https://your-project.supabase.co
 export SUPABASE_ANON_KEY=your-anon-key
@@ -49,6 +55,8 @@ livefolio market series SPY > spy.csv
 |---------|-------------|
 | `market series <symbols...>` | Fetch historical daily series for one or more symbols (CSV) |
 | `market quotes <symbols...>` | Get current price for one or more symbols (CSV) |
+| `strategy get <link_id>` | Fetch a strategy definition and output as JSON |
+| `strategy evaluate <link_id>` | Evaluate a strategy and output the result as JSON |
 
 ## Development
 
@@ -61,7 +69,7 @@ node dist/cli.js --env .env.local market series SPY
 
 ## CI/CD
 
-- PRs to `main` run build and enforce a version bump
+- PRs to `main` run build, tests, and enforce a version bump
 - Merges to `main` auto-publish to npm and create a GitHub release
 
 Before merging, bump the version:

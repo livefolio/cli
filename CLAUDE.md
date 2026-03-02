@@ -21,7 +21,7 @@ node dist/cli.js --env .env.local market series SPY
 
 ## Architecture
 
-`@livefolio/cli` is a thin command-line wrapper around `@livefolio/sdk`. It exposes SDK functionality as shell commands with CSV output suitable for both human users and AI agents.
+`@livefolio/cli` is a thin command-line wrapper around `@livefolio/sdk`. It exposes SDK functionality as shell commands suitable for both human users and AI agents. Market commands output CSV; strategy commands output JSON.
 
 ### File structure
 
@@ -52,8 +52,8 @@ src/
 1. Create `src/commands/<module>/` with `index.ts` (registration) and command files
 2. Register the module in `cli.ts` — call `registerX(program)` before `program.parse()`
 3. Use `getLivefolio()` from `config.ts` to access SDK methods
-4. Use `formatObservations()` from `lib/format.ts` for CSV output — all commands share the `symbol,timestamp,price` format
-5. Output CSV to stdout, errors to stderr with `process.exitCode = 1`
+4. For market commands, use `formatObservations()` from `lib/format.ts` for CSV output (`symbol,timestamp,price`). For strategy commands, output JSON via `JSON.stringify(result, null, 2)`.
+5. Output to stdout, errors to stderr with `process.exitCode = 1`
 6. **Add a `<command>.test.ts`** alongside the action handler (see Testing below)
 
 ### Relationship to other Livefolio repos
@@ -72,12 +72,18 @@ TypeScript compiles to ESM (`dist/`) with declarations. Target is ES2022, module
 
 ## Testing
 
-**Every code change must include corresponding tests.** Tests use vitest and mock `getLivefolio()` from `config.ts`. Each command action test must cover:
+**Every code change must include corresponding tests.** Tests use vitest and mock `getLivefolio()` from `config.ts`.
 
+Market command tests must cover:
 - Empty input validation
 - Symbol uppercasing
 - Success path with single and multiple symbols
 - Missing data handling (empty results, missing symbols)
+- Error handling (both `Error` instances and non-Error thrown values)
+
+Strategy command tests must cover:
+- Not found (null result → stderr error, exitCode 1)
+- Success path (JSON output to stdout)
 - Error handling (both `Error` instances and non-Error thrown values)
 
 Test files live alongside their source files (`series.test.ts` next to `series.ts`). The `tsconfig.json` excludes `*.test.ts` from the build; `vitest.config.ts` excludes `dist/` from test discovery.
@@ -95,8 +101,10 @@ Test files live alongside their source files (`series.test.ts` next to `series.t
 
 Two GitHub Actions workflows in `.github/workflows/`:
 
-- **test.yml** (PR → main) — installs, builds, checks that `package.json` version was bumped vs main
-- **release.yml** (push to main) — builds, publishes to npm, creates a GitHub release
+- **test.yml** (PR → main) — installs, builds, runs tests, checks that `package.json` version was bumped vs main
+- **release.yml** (push to main) — builds, runs tests, publishes to npm, creates a GitHub release
+
+A branch ruleset on `main` enforces: no direct pushes (PRs required), status checks must pass (`test` job), no deletions, no force pushes.
 
 **Before merging a PR**, always run `npm version patch` (or minor/major) to bump the version. The test workflow will block the PR if you forget.
 
