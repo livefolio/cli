@@ -24,13 +24,18 @@ For local development with `supabase start`, the defaults in `.env.example` work
 # Load env and fetch historical series
 livefolio --env .env.local market series SPY
 
-# Output is CSV, pipe-friendly
-livefolio --env .env.local market series QQQ | head -5
-# date,value
-# 1999-03-10,1.5625
-# 1999-03-11,1.546875
-# 1999-03-12,1.484375
-# 1999-03-15,1.5
+# Fetch multiple symbols at once
+livefolio --env .env.local market series SPY QQQ
+
+# Get real-time quotes
+livefolio --env .env.local market quotes SPY QQQ
+
+# Output is CSV (symbol,timestamp,price), pipe-friendly
+livefolio --env .env.local market series SPY | head -5
+# symbol,timestamp,price
+# SPY,2025-01-10T16:00:00Z,590.25
+# SPY,2025-01-11T16:00:00Z,592.10
+# SPY,2025-01-12T16:00:00Z,588.50
 
 # With env vars exported, --env is not needed
 export SUPABASE_URL=https://your-project.supabase.co
@@ -42,13 +47,15 @@ livefolio market series SPY > spy.csv
 
 | Command | Description |
 |---------|-------------|
-| `market series <symbol>` | Fetch historical daily series for a symbol (CSV) |
+| `market series <symbols...>` | Fetch historical daily series for one or more symbols (CSV) |
+| `market quotes <symbols...>` | Get current price for one or more symbols (CSV) |
 
 ## Development
 
 ```bash
 npm install
 npm run build
+npm test             # run tests
 node dist/cli.js --env .env.local market series SPY
 ```
 

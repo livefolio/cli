@@ -1,5 +1,6 @@
 import type { Command } from "commander";
 import { seriesAction } from "./series.js";
+import { quoteAction } from "./quote.js";
 
 export function registerMarket(program: Command): void {
   const market = program
@@ -7,7 +8,12 @@ export function registerMarket(program: Command): void {
     .description("Market data commands");
 
   market
-    .command("series <symbol>")
-    .description("Fetch historical series for a symbol")
+    .command("series <symbols...>")
+    .description("Fetch historical series for one or more symbols")
     .action(seriesAction);
+
+  market
+    .command("quotes <symbols...>")
+    .description("Get current price for one or more symbols")
+    .action(quoteAction);
 }

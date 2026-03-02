@@ -8,6 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run build        # compile TypeScript (tsc) → dist/
 npm run dev          # tsc --watch
 npm run start        # node dist/cli.js
+npm test             # run tests (vitest)
+npm run test:watch   # run tests in watch mode
 ```
 
 Run locally against a Supabase instance:
@@ -29,10 +31,14 @@ src/
   config.ts                       # .env file loader + lazy LivefolioClient singleton
   lib/
     format.ts                     # Output formatters (CSV)
+    format.test.ts                # Tests for formatters
   commands/
     market/
       index.ts                    # "market" subcommand registration
-      series.ts                   # series <symbol> action handler
+      series.ts                   # series <symbols...> action handler
+      series.test.ts              # Tests for series action
+      quote.ts                    # quotes <symbols...> action handler
+      quote.test.ts               # Tests for quote action
 ```
 
 ### Adding a new command
@@ -40,7 +46,9 @@ src/
 1. Create `src/commands/<module>/` with `index.ts` (registration) and command files
 2. Register the module in `cli.ts` — call `registerX(program)` before `program.parse()`
 3. Use `getLivefolio()` from `config.ts` to access SDK methods
-4. Output CSV to stdout, errors to stderr with `process.exitCode = 1`
+4. Use `formatObservations()` from `lib/format.ts` for CSV output — all commands share the `symbol,timestamp,price` format
+5. Output CSV to stdout, errors to stderr with `process.exitCode = 1`
+6. **Add a `<command>.test.ts`** alongside the action handler (see Testing below)
 
 ### Relationship to other Livefolio repos
 
@@ -55,6 +63,18 @@ The CLI requires `SUPABASE_URL` and `SUPABASE_ANON_KEY` to be set. Use `--env <p
 ### Build output
 
 TypeScript compiles to ESM (`dist/`) with declarations. Target is ES2022, module system is Node16. The `dist/cli.js` entry point has a shebang for use as a global binary.
+
+## Testing
+
+**Every code change must include corresponding tests.** Tests use vitest and mock `getLivefolio()` from `config.ts`. Each command action test must cover:
+
+- Empty input validation
+- Symbol uppercasing
+- Success path with single and multiple symbols
+- Missing data handling (empty results, missing symbols)
+- Error handling (both `Error` instances and non-Error thrown values)
+
+Test files live alongside their source files (`series.test.ts` next to `series.ts`). The `tsconfig.json` excludes `*.test.ts` from the build; `vitest.config.ts` excludes `dist/` from test discovery.
 
 ## Code Conventions
 
