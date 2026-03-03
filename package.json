@@ -1,6 +1,6 @@
 {
   "name": "@livefolio/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Livefolio CLI",
   "type": "module",
   "bin": {
@@ -13,6 +13,8 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/cli.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "prepublishOnly": "npm run build"
   },
   "keywords": [
@@ -30,10 +32,13 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@livefolio/sdk": "^0.2.0",
+    "@supabase/supabase-js": "^2.98.0",
     "commander": "^13.1.0"
   },
   "devDependencies": {
     "@types/node": "^22.15.0",
-    "typescript": "^5.8.0"
+    "typescript": "^5.8.0",
+    "vitest": "^4.0.18"
   }
 }
