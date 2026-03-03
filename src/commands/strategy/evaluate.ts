@@ -1,7 +1,15 @@
 import { getLivefolio } from "../../config.js";
 
-export async function evaluateAction(linkId: string): Promise<void> {
+export async function evaluateAction(linkId: string, options: { at?: string }): Promise<void> {
   try {
+    const at = options.at ? new Date(options.at) : new Date();
+
+    if (isNaN(at.getTime())) {
+      process.stderr.write(`Error: invalid date "${options.at}"\n`);
+      process.exitCode = 1;
+      return;
+    }
+
     const strategy = await getLivefolio().strategy.get(linkId);
 
     if (!strategy) {
@@ -10,7 +18,7 @@ export async function evaluateAction(linkId: string): Promise<void> {
       return;
     }
 
-    const result = await getLivefolio().strategy.evaluate(strategy, new Date());
+    const result = await getLivefolio().strategy.evaluate(strategy, at);
     console.log(JSON.stringify(result, null, 2));
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

@@ -15,5 +15,6 @@ export function registerStrategy(program: Command): void {
   strategy
     .command("evaluate <link_id>")
     .description("Evaluate a strategy and output the result as JSON")
+    .option("--at <date>", "Evaluation date (YYYY-MM-DD or ISO string, defaults to now)")
     .action(evaluateAction);
 }
