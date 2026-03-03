@@ -43,6 +43,9 @@ livefolio --env .env.local strategy get bCicNI7OI2x
 # Evaluate a strategy (signals, allocation, indicators)
 livefolio --env .env.local strategy evaluate bCicNI7OI2x
 
+# Evaluate as of a specific date
+livefolio --env .env.local strategy evaluate bCicNI7OI2x --at 2025-05-12T21:00:00Z
+
 # With env vars exported, --env is not needed
 export SUPABASE_URL=https://your-project.supabase.co
 export SUPABASE_ANON_KEY=your-anon-key
@@ -56,7 +59,7 @@ livefolio market series SPY > spy.csv
 | `market series <symbols...>` | Fetch historical daily series for one or more symbols (CSV) |
 | `market quotes <symbols...>` | Get current price for one or more symbols (CSV) |
 | `strategy get <link_id>` | Fetch a strategy definition and output as JSON |
-| `strategy evaluate <link_id>` | Evaluate a strategy and output the result as JSON |
+| `strategy evaluate <link_id> [--at <date>]` | Evaluate a strategy and output the result as JSON |
 
 ## Development
 
