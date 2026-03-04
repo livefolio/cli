@@ -1,6 +1,6 @@
 # @livefolio/cli
 
-Command-line interface for Livefolio market data, built on `@livefolio/sdk`.
+Command-line interface for Livefolio, built on `@livefolio/sdk`.
 
 ## Install
 
@@ -18,55 +18,22 @@ cp .env.example .env.local
 
 For local development with `supabase start`, the defaults in `.env.example` work out of the box.
 
-## Usage
-
-```bash
-# Load env and fetch historical series
-livefolio --env .env.local market series SPY
-
-# Fetch multiple symbols at once
-livefolio --env .env.local market series SPY QQQ
-
-# Get real-time quotes
-livefolio --env .env.local market quotes SPY QQQ
-
-# Output is CSV (symbol,timestamp,price), pipe-friendly
-livefolio --env .env.local market series SPY | head -5
-# symbol,timestamp,price
-# SPY,2025-01-10T16:00:00Z,590.25
-# SPY,2025-01-11T16:00:00Z,592.10
-# SPY,2025-01-12T16:00:00Z,588.50
-
-# Fetch a strategy definition
-livefolio --env .env.local strategy get bCicNI7OI2x
-
-# Evaluate a strategy (signals, allocation, indicators)
-livefolio --env .env.local strategy evaluate bCicNI7OI2x
-
-# Evaluate as of a specific date
-livefolio --env .env.local strategy evaluate bCicNI7OI2x --at 2025-05-12T21:00:00Z
-
-# With env vars exported, --env is not needed
-export SUPABASE_URL=https://your-project.supabase.co
-export SUPABASE_ANON_KEY=your-anon-key
-livefolio market series SPY > spy.csv
-```
-
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `market series <symbols...>` | Fetch historical daily series for one or more symbols (CSV) |
-| `market quotes <symbols...>` | Get current price for one or more symbols (CSV) |
-| `strategy get <link_id>` | Fetch a strategy definition and output as JSON |
-| `strategy evaluate <link_id> [--at <date>]` | Evaluate a strategy and output the result as JSON |
+| Command | Description | Docs |
+|---------|-------------|------|
+| `market series` | Fetch historical daily price series (CSV) | [docs/market.md](docs/market.md) |
+| `market quotes` | Get current prices (CSV) | [docs/market.md](docs/market.md) |
+| `strategy get` | Fetch a strategy definition (JSON) | [docs/strategy.md](docs/strategy.md) |
+| `strategy evaluate` | Evaluate a strategy (JSON) | [docs/strategy.md](docs/strategy.md) |
+| `portfolio rebalance` | Compute a rebalance plan (JSON) | [docs/portfolio.md](docs/portfolio.md) |
 
 ## Development
 
 ```bash
 npm install
 npm run build
-npm test             # run tests
+npm test
 node dist/cli.js --env .env.local market series SPY
 ```
 

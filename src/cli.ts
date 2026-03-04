@@ -2,6 +2,7 @@
 import { program } from "commander";
 import { loadEnvFile } from "./config.js";
 import { registerMarket } from "./commands/market/index.js";
+import { registerPortfolio } from "./commands/portfolio/index.js";
 import { registerStrategy } from "./commands/strategy/index.js";
 
 const version =
@@ -18,6 +19,7 @@ program
   });
 
 registerMarket(program);
+registerPortfolio(program);
 registerStrategy(program);
 
 program.parse();

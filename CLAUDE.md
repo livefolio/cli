@@ -39,6 +39,10 @@ src/
       series.test.ts              # Tests for series action
       quote.ts                    # quotes <symbols...> action handler
       quote.test.ts               # Tests for quote action
+    portfolio/
+      index.ts                    # "portfolio" subcommand registration
+      rebalance.ts                # rebalance action handler
+      rebalance.test.ts           # Tests for rebalance action
     strategy/
       index.ts                    # "strategy" subcommand registration
       get.ts                      # get <link_id> action handler
@@ -84,6 +88,13 @@ Market command tests must cover:
 Strategy command tests must cover:
 - Not found (null result → stderr error, exitCode 1)
 - Success path (JSON output to stdout)
+- Error handling (both `Error` instances and non-Error thrown values)
+
+Portfolio command tests must cover:
+- Missing required options / invalid pair format
+- Valid rebalance (triggered and not triggered)
+- Threshold override
+- Cash-symbol exclusion
 - Error handling (both `Error` instances and non-Error thrown values)
 
 Test files live alongside their source files (`series.test.ts` next to `series.ts`). The `tsconfig.json` excludes `*.test.ts` from the build; `vitest.config.ts` excludes `dist/` from test discovery.
