@@ -52,14 +52,9 @@ export SUPABASE_ANON_KEY=your-anon-key
 livefolio market series SPY > spy.csv
 ```
 
-## Commands
+## Documentation
 
-| Command | Description |
-|---------|-------------|
-| `market series <symbols...>` | Fetch historical daily series for one or more symbols (CSV) |
-| `market quotes <symbols...>` | Get current price for one or more symbols (CSV) |
-| `strategy get <link_id>` | Fetch a strategy definition and output as JSON |
-| `strategy evaluate <link_id> [--at <date>]` | Evaluate a strategy and output the result as JSON |
+Full command reference and usage examples: **[docs/](./docs/)**
 
 ## Development
 
