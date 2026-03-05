@@ -32,6 +32,8 @@ src/
   lib/
     format.ts                     # Output formatters (CSV)
     format.test.ts                # Tests for formatters
+    stdin.ts                      # Stdin reader (line-by-line)
+    stdin.test.ts                 # Tests for stdin reader
   commands/
     market/
       index.ts                    # "market" subcommand registration
@@ -45,6 +47,10 @@ src/
       get.test.ts                 # Tests for get action
       evaluate.ts                 # evaluate <link_id> action handler
       evaluate.test.ts            # Tests for evaluate action
+      symbols.ts                  # symbols <link_id> action handler
+      symbols.test.ts             # Tests for symbols action
+      stream.ts                   # stream <link_id> action handler
+      stream.test.ts              # Tests for stream action
 ```
 
 ### Adding a new command
