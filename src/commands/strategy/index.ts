@@ -22,7 +22,7 @@ export function registerStrategy(program: Command): void {
 
   strategy
     .command("stream <link_id>")
-    .description("Stream-evaluate a strategy with observations piped from stdin (CSV: symbol,timestamp,price)")
+    .description("Stream live observations and output evaluations as JSONL")
     .action(streamAction);
 
   strategy
