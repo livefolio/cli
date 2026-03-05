@@ -29,3 +29,9 @@ livefolio portfolio rebalance \
 | `--cash-symbol <symbol>` | No | Treat this symbol as cash — no orders will be generated for it |
 
 Symbols should be **tradable tickers** (e.g. `SPY`, `QQQ`), not simulated strategy symbols.
+
+### Input validation
+
+- **Strict numeric parsing** — values must be exact numbers. Trailing characters like `"10abc"` or `"10%"` are rejected (unlike `parseFloat`, which would silently accept them as `10`).
+- **Whitespace trimming** — spaces around symbols and values are trimmed, so `"SPY:60, QQQ:40"` and `" spy : 60 "` both work correctly.
+- **Duplicate detection** — repeating a symbol in the same option (e.g. `--targets "SPY:60,SPY:40"`) is an error.
