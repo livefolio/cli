@@ -14,22 +14,28 @@ function parsePairs(input: string, name: string): Record<string, number> {
   const result: Record<string, number> = {};
   for (const pair of input.split(",")) {
     const parts = pair.split(":");
-    if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    if (parts.length !== 2 || !parts[0]?.trim() || !parts[1]?.trim()) {
       throw new Error(`invalid ${name} pair: "${pair}" (expected SYMBOL:NUMBER)`);
     }
-    const value = parseFloat(parts[1]);
+    const trimmedValue = parts[1].trim();
+    const value = Number(trimmedValue);
     if (!isFinite(value)) {
-      throw new Error(`invalid ${name} value for ${parts[0]}: "${parts[1]}" is not a number`);
+      throw new Error(`invalid ${name} value for ${parts[0].trim()}: "${trimmedValue}" is not a number`);
     }
-    result[parts[0].toUpperCase()] = value;
+    const symbol = parts[0].trim().toUpperCase();
+    if (symbol in result) {
+      throw new Error(`duplicate ${name} symbol: "${symbol}"`);
+    }
+    result[symbol] = value;
   }
   return result;
 }
 
 function parseNumber(input: string, name: string): number {
-  const value = parseFloat(input);
+  const trimmed = input.trim();
+  const value = Number(trimmed);
   if (!isFinite(value)) {
-    throw new Error(`invalid ${name}: "${input}" is not a number`);
+    throw new Error(`invalid ${name}: "${trimmed}" is not a number`);
   }
   return value;
 }

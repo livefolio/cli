@@ -92,6 +92,9 @@ Strategy command tests must cover:
 
 Portfolio command tests must cover:
 - Missing required options / invalid pair format
+- Strict numeric parsing (trailing garbage like `"10abc"` or `"10%"` must be rejected — uses `Number()`, not `parseFloat()`)
+- Whitespace trimming and symbol uppercasing in pairs (e.g. `" spy :60, qqq :40"`)
+- Duplicate symbol detection in pair options
 - Valid rebalance (triggered and not triggered)
 - Threshold override
 - Cash-symbol exclusion

@@ -155,6 +155,59 @@ describe('rebalanceAction', () => {
     );
   });
 
+  it('errors on trailing garbage in pair value (parseFloat would accept)', async () => {
+    await rebalanceAction({ ...baseOptions(), targets: 'SPY:10abc' });
+
+    expect(stderr).toContain('not a number');
+    expect(process.exitCode).toBe(1);
+    expect(mockBuildRebalancePlan).not.toHaveBeenCalled();
+  });
+
+  it('errors on trailing percent in pair value', async () => {
+    await rebalanceAction({ ...baseOptions(), targets: 'SPY:10%' });
+
+    expect(stderr).toContain('not a number');
+    expect(process.exitCode).toBe(1);
+    expect(mockBuildRebalancePlan).not.toHaveBeenCalled();
+  });
+
+  it('trims whitespace around pairs and symbols', async () => {
+    mockBuildRebalancePlan.mockReturnValue({ triggered: false, portfolioDriftPercentPoints: 0, reason: 'ok', orders: [] });
+
+    await rebalanceAction({ ...baseOptions(), targets: 'SPY:60, QQQ:40' });
+
+    expect(mockBuildRebalancePlan).toHaveBeenCalledWith(
+      expect.objectContaining({ targetWeights: { SPY: 60, QQQ: 40 } }),
+    );
+    expect(process.exitCode).toBeUndefined();
+  });
+
+  it('trims and uppercases padded symbols', async () => {
+    mockBuildRebalancePlan.mockReturnValue({ triggered: false, portfolioDriftPercentPoints: 0, reason: 'ok', orders: [] });
+
+    await rebalanceAction({ ...baseOptions(), targets: ' spy :60, qqq :40' });
+
+    expect(mockBuildRebalancePlan).toHaveBeenCalledWith(
+      expect.objectContaining({ targetWeights: { SPY: 60, QQQ: 40 } }),
+    );
+  });
+
+  it('errors on duplicate symbol in pairs', async () => {
+    await rebalanceAction({ ...baseOptions(), targets: 'SPY:60,SPY:40' });
+
+    expect(stderr).toContain('duplicate targets symbol: "SPY"');
+    expect(process.exitCode).toBe(1);
+    expect(mockBuildRebalancePlan).not.toHaveBeenCalled();
+  });
+
+  it('errors on trailing garbage in cash value', async () => {
+    await rebalanceAction({ ...baseOptions(), cash: '100abc' });
+
+    expect(stderr).toContain('invalid cash');
+    expect(process.exitCode).toBe(1);
+    expect(mockBuildRebalancePlan).not.toHaveBeenCalled();
+  });
+
   it('handles buildRebalancePlan throwing an error', async () => {
     mockBuildRebalancePlan.mockImplementation(() => { throw new Error('bad input'); });
 
