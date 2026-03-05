@@ -1,6 +1,6 @@
 {
   "name": "@livefolio/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Livefolio CLI",
   "type": "module",
   "bin": {
@@ -32,7 +32,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@livefolio/sdk": "^0.2.0",
+    "@livefolio/sdk": "^0.2.1",
     "@supabase/supabase-js": "^2.98.0",
     "commander": "^13.1.0"
   },
