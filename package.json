@@ -32,7 +32,7 @@
     "node": ">=18"
   },
   "dependencies": {
-    "@livefolio/sdk": "git+https://github.com/livefolio/sdk.git#14d7129",
+    "@livefolio/sdk": "git+https://github.com/livefolio/sdk.git#a9e117b",
     "@supabase/supabase-js": "^2.98.0",
     "commander": "^13.1.0"
   },
