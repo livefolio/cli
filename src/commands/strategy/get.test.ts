@@ -1,33 +1,32 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { getAction } from './get.js';
-
-// ---------------------------------------------------------------------------
-// Mock getLivefolio
-// ---------------------------------------------------------------------------
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getAction } from "./get.js";
 
 const mockGet = vi.fn();
 
-vi.mock('../../config.js', () => ({
+vi.mock("../../config.js", () => ({
   getLivefolio: () => ({
     strategy: { get: mockGet },
   }),
 }));
 
-// ---------------------------------------------------------------------------
-// Capture stdout / stderr
-// ---------------------------------------------------------------------------
-
-let stdout: string;
-let stderr: string;
+let stdout = "";
+let stderr = "";
 let originalExitCode: number | undefined;
 
 beforeEach(() => {
-  stdout = '';
-  stderr = '';
+  stdout = "";
+  stderr = "";
   originalExitCode = process.exitCode;
   process.exitCode = undefined;
-  vi.spyOn(console, 'log').mockImplementation((msg: string) => { stdout += msg + '\n'; });
-  vi.spyOn(process.stderr, 'write').mockImplementation((msg: string) => { stderr += msg; return true; });
+  mockGet.mockReset();
+  vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
+    stdout += String(chunk);
+    return true;
+  });
+  vi.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
+    stderr += String(chunk);
+    return true;
+  });
 });
 
 afterEach(() => {
@@ -35,58 +34,57 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
-
-describe('getAction', () => {
-  it('prints error and sets exit code when strategy is not found', async () => {
+describe("getAction", () => {
+  it("returns JSON contract and exit code 3 for not found", async () => {
     mockGet.mockResolvedValue(null);
 
-    await getAction('abc123');
+    await getAction("abc123");
 
-    expect(mockGet).toHaveBeenCalledWith('abc123');
-    expect(stderr).toBe('Error: strategy not found for link ID "abc123"\n');
-    expect(process.exitCode).toBe(1);
-  });
-
-  it('outputs strategy as JSON on success', async () => {
-    const strategy = {
-      linkId: 'abc123',
-      name: 'Test Strategy',
-      signals: [{ name: 'SMA > EMA' }],
-      allocations: [{ name: 'Default', holdings: [{ ticker: { symbol: 'SPY', leverage: 1 }, weight: 1 }] }],
-    };
-
-    mockGet.mockResolvedValue(strategy);
-
-    await getAction('abc123');
-
-    expect(mockGet).toHaveBeenCalledWith('abc123');
-    expect(process.exitCode).toBeUndefined();
+    expect(mockGet).toHaveBeenCalledWith("abc123");
+    expect(stderr).toBe("");
+    expect(process.exitCode).toBe(3);
 
     const parsed = JSON.parse(stdout);
-    expect(parsed.linkId).toBe('abc123');
-    expect(parsed.name).toBe('Test Strategy');
-    expect(parsed.signals).toHaveLength(1);
-    expect(parsed.allocations[0].name).toBe('Default');
+    expect(parsed).toEqual({
+      ok: false,
+      error: {
+        code: "strategy_not_found",
+        message: "Strategy not found.",
+        data: { linkId: "abc123" },
+      },
+    });
   });
 
-  it('prints Error message to stderr on failure', async () => {
-    mockGet.mockRejectedValue(new Error('Network timeout'));
+  it("returns JSON contract and exit code 0 on success", async () => {
+    const strategy = {
+      linkId: "abc123",
+      name: "Test Strategy",
+      signals: [{ name: "spy_above_200d" }],
+      allocations: [{ name: "default", holdings: [{ ticker: { symbol: "SPY", leverage: 1 }, weight: 100 }] }],
+    };
+    mockGet.mockResolvedValue(strategy);
 
-    await getAction('abc123');
+    await getAction("abc123");
 
-    expect(stderr).toBe('Error: Network timeout\n');
-    expect(process.exitCode).toBe(1);
+    expect(process.exitCode).toBe(0);
+    expect(stderr).toBe("");
+    const parsed = JSON.parse(stdout);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.warnings).toEqual([]);
+    expect(parsed.result.linkId).toBe("abc123");
+    expect(parsed.result.strategy.name).toBe("Test Strategy");
   });
 
-  it('coerces non-Error thrown values to string', async () => {
-    mockGet.mockRejectedValue(42);
+  it("maps unexpected errors to exit code 10", async () => {
+    mockGet.mockRejectedValue(new Error("Network timeout"));
 
-    await getAction('abc123');
+    await getAction("abc123");
 
-    expect(stderr).toBe('Error: 42\n');
-    expect(process.exitCode).toBe(1);
+    expect(process.exitCode).toBe(10);
+    expect(stderr).toBe("");
+    const parsed = JSON.parse(stdout);
+    expect(parsed.ok).toBe(false);
+    expect(parsed.error.code).toBe("internal_error");
+    expect(parsed.error.data.cause).toContain("Network timeout");
   });
 });

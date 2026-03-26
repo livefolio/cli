@@ -2,22 +2,27 @@ import { getLivefolio } from "../../config.js";
 import { runStrategyAction } from "./contract.js";
 import { compileLocalDraftOrThrow } from "./compile-local.js";
 import {
-  parseAtDate,
+  parseYmd,
   readLocalStrategyDraft,
 } from "./local-file.js";
 
-export async function evaluateAction(options: {
+export async function backtestAction(options: {
   file: string;
-  at?: string;
+  start: string;
+  end: string;
 }): Promise<void> {
   await runStrategyAction(async () => {
     const draft = await readLocalStrategyDraft(options.file);
     const strategy = compileLocalDraftOrThrow(draft);
-    const at = parseAtDate(options.at);
-    const evaluation = await getLivefolio().strategy.evaluate(strategy, at);
+    const startDate = parseYmd(options.start, "start");
+    const endDate = parseYmd(options.end, "end");
+    const backtest = await getLivefolio().strategy.backtest(strategy, {
+      startDate,
+      endDate,
+    });
     return {
       file: options.file,
-      evaluation,
+      backtest,
     };
   });
 }
