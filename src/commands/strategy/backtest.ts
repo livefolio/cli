@@ -1,4 +1,4 @@
-import { getLivefolio } from "../../config.js";
+import { apiRequest } from "../../auth/api.js";
 import { runStrategyAction } from "./contract.js";
 import { compileLocalDraftOrThrow } from "./compile-local.js";
 import {
@@ -10,15 +10,21 @@ export async function backtestAction(options: {
   file: string;
   start: string;
   end: string;
+  debug?: boolean;
+  debugLogEvery?: string;
 }): Promise<void> {
   await runStrategyAction(async () => {
     const draft = await readLocalStrategyDraft(options.file);
-    const strategy = compileLocalDraftOrThrow(draft);
+    compileLocalDraftOrThrow(draft);
     const startDate = parseYmd(options.start, "start");
     const endDate = parseYmd(options.end, "end");
-    const backtest = await getLivefolio().strategy.backtest(strategy, {
-      startDate,
-      endDate,
+    const backtest = await apiRequest("/api/strategy/backtest", {
+      method: "POST",
+      body: {
+        draft,
+        startDate,
+        endDate,
+      },
     });
     return {
       file: options.file,
@@ -26,4 +32,3 @@ export async function backtestAction(options: {
     };
   });
 }
-

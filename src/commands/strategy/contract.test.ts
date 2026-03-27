@@ -2,20 +2,15 @@ import { mkdtemp, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { apiRequest } from "../../auth/api.js";
 import { addAllocationAction } from "./add-allocation.js";
 import { backtestAction } from "./backtest.js";
 import { compileAction } from "./compile.js";
 import { setTradingAction } from "./set-trading.js";
 import { validateAction } from "./validate.js";
 
-const mockBacktest = vi.fn();
-
-vi.mock("../../config.js", () => ({
-  getLivefolio: () => ({
-    strategy: {
-      backtest: mockBacktest,
-    },
-  }),
+vi.mock("../../auth/api.js", () => ({
+  apiRequest: vi.fn(),
 }));
 
 const baseDraft = {
@@ -50,7 +45,7 @@ beforeEach(() => {
   stderr = "";
   originalExitCode = process.exitCode;
   process.exitCode = undefined;
-  mockBacktest.mockReset();
+  vi.mocked(apiRequest).mockReset();
   vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
     stdout += String(chunk);
     return true;
@@ -108,20 +103,30 @@ describe("strategy command contract", () => {
 
   it("backtest emits JSON-only success envelope", async () => {
     const file = await writeDraftFile(baseDraft);
-    mockBacktest.mockResolvedValue({
+    vi.mocked(apiRequest).mockResolvedValue({
       summary: { tradeCount: 2 },
       trades: [],
       timeseries: { dates: [], portfolio: [], cash: [], drawdownPct: [], allocation: [] },
       annualTax: [],
     });
 
-    await backtestAction({ file, start: "2025-01-01", end: "2025-12-31" });
+    await backtestAction({ file, start: "2025-01-01", end: "2025-12-31", debug: true, debugLogEvery: "5" });
 
     expect(process.exitCode).toBe(0);
     expect(stderr).toBe("");
     const parsed = JSON.parse(stdout);
     expect(parsed.ok).toBe(true);
     expect(parsed.result.backtest.summary.tradeCount).toBe(2);
+    expect(apiRequest).toHaveBeenCalledWith(
+      "/api/strategy/backtest",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.objectContaining({
+          startDate: "2025-01-01",
+          endDate: "2025-12-31",
+        }),
+      }),
+    );
   });
 
   it("maps condition parse failures to exit code 4", async () => {
@@ -157,4 +162,3 @@ describe("strategy command contract", () => {
     expect(parsed.error.code).toBe("invalid_frequency");
   });
 });
-

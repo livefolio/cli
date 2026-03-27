@@ -67,6 +67,8 @@ export function registerStrategy(program: Command): void {
     .requiredOption("--file <path>", "Path to local strategy JSON")
     .requiredOption("--start <date>", "Backtest start date (YYYY-MM-DD)")
     .requiredOption("--end <date>", "Backtest end date (YYYY-MM-DD)")
+    .option("--debug", "Emit backtest diagnostics to stderr")
+    .option("--debug-log-every <days>", "Emit periodic progress every N trading days")
     .action(backtestAction);
 
   strategy

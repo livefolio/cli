@@ -1,13 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { evaluateRemoteAction } from "./evaluate-remote.js";
 
-const mockGet = vi.fn();
-const mockEvaluate = vi.fn();
+const mockApiRequest = vi.fn();
 
-vi.mock("../../config.js", () => ({
-  getLivefolio: () => ({
-    strategy: { get: mockGet, evaluate: mockEvaluate },
-  }),
+vi.mock("../../auth/api.js", () => ({
+  apiRequest: (...args: unknown[]) => mockApiRequest(...args),
 }));
 
 let stdout = "";
@@ -19,8 +16,7 @@ beforeEach(() => {
   stderr = "";
   originalExitCode = process.exitCode;
   process.exitCode = undefined;
-  mockGet.mockReset();
-  mockEvaluate.mockReset();
+  mockApiRequest.mockReset();
   vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
     stdout += String(chunk);
     return true;
@@ -41,39 +37,37 @@ describe("evaluateRemoteAction", () => {
     await evaluateRemoteAction("abc123", { at: "bad-date" });
 
     expect(process.exitCode).toBe(2);
-    expect(mockGet).not.toHaveBeenCalled();
+    expect(mockApiRequest).not.toHaveBeenCalled();
     expect(stderr).toBe("");
     const parsed = JSON.parse(stdout);
     expect(parsed.error.code).toBe("invalid_date");
   });
 
   it("returns exit code 3 when remote strategy is missing", async () => {
-    mockGet.mockResolvedValue(null);
+    mockApiRequest.mockResolvedValue({});
 
     await evaluateRemoteAction("abc123", {});
 
     expect(process.exitCode).toBe(3);
-    expect(mockEvaluate).not.toHaveBeenCalled();
     expect(stderr).toBe("");
     const parsed = JSON.parse(stdout);
     expect(parsed.error.code).toBe("strategy_not_found");
   });
 
   it("returns success envelope on evaluation", async () => {
-    const strategy = { linkId: "abc123", trading: { frequency: "Monthly", offset: 0 } };
     const evaluation = { asOf: new Date("2025-06-15T12:00:00.000Z"), allocation: {}, signals: {}, indicators: {} };
-    mockGet.mockResolvedValue(strategy);
-    mockEvaluate.mockResolvedValue(evaluation);
+    mockApiRequest.mockResolvedValue({ evaluation });
 
     await evaluateRemoteAction("abc123", { at: "2025-06-15" });
 
     expect(process.exitCode).toBe(0);
     expect(stderr).toBe("");
-    expect(mockEvaluate).toHaveBeenCalledWith(strategy, new Date("2025-06-15"));
+    expect(mockApiRequest).toHaveBeenCalledWith(
+      "/api/strategy/abc123/evaluate?at=2025-06-15T00%3A00%3A00.000Z",
+    );
 
     const parsed = JSON.parse(stdout);
     expect(parsed.ok).toBe(true);
     expect(parsed.result.linkId).toBe("abc123");
   });
 });
-

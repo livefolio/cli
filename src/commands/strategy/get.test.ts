@@ -1,12 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getAction } from "./get.js";
 
-const mockGet = vi.fn();
+const mockApiRequest = vi.fn();
 
-vi.mock("../../config.js", () => ({
-  getLivefolio: () => ({
-    strategy: { get: mockGet },
-  }),
+vi.mock("../../auth/api.js", () => ({
+  apiRequest: (...args: unknown[]) => mockApiRequest(...args),
 }));
 
 let stdout = "";
@@ -18,7 +16,7 @@ beforeEach(() => {
   stderr = "";
   originalExitCode = process.exitCode;
   process.exitCode = undefined;
-  mockGet.mockReset();
+  mockApiRequest.mockReset();
   vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
     stdout += String(chunk);
     return true;
@@ -36,11 +34,11 @@ afterEach(() => {
 
 describe("getAction", () => {
   it("returns JSON contract and exit code 3 for not found", async () => {
-    mockGet.mockResolvedValue(null);
+    mockApiRequest.mockResolvedValue({});
 
     await getAction("abc123");
 
-    expect(mockGet).toHaveBeenCalledWith("abc123");
+    expect(mockApiRequest).toHaveBeenCalledWith("/api/strategy/abc123");
     expect(stderr).toBe("");
     expect(process.exitCode).toBe(3);
 
@@ -62,7 +60,7 @@ describe("getAction", () => {
       signals: [{ name: "spy_above_200d" }],
       allocations: [{ name: "default", holdings: [{ ticker: { symbol: "SPY", leverage: 1 }, weight: 100 }] }],
     };
-    mockGet.mockResolvedValue(strategy);
+    mockApiRequest.mockResolvedValue({ strategy });
 
     await getAction("abc123");
 
@@ -76,7 +74,7 @@ describe("getAction", () => {
   });
 
   it("maps unexpected errors to exit code 10", async () => {
-    mockGet.mockRejectedValue(new Error("Network timeout"));
+    mockApiRequest.mockRejectedValue(new Error("Network timeout"));
 
     await getAction("abc123");
 

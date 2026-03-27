@@ -4,20 +4,12 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { publishAction } from "./publish.js";
 
-const { mockRpc, mockBacktest, mockCreateClient } = vi.hoisted(() => ({
-  mockRpc: vi.fn(),
-  mockBacktest: vi.fn(),
-  mockCreateClient: vi.fn(() => ({ rpc: mockRpc })),
+const { mockApiRequest } = vi.hoisted(() => ({
+  mockApiRequest: vi.fn(),
 }));
 
-vi.mock("@supabase/supabase-js", () => ({
-  createClient: mockCreateClient,
-}));
-
-vi.mock("../../config.js", () => ({
-  getLivefolio: () => ({
-    strategy: { backtest: mockBacktest },
-  }),
+vi.mock("../../auth/api.js", () => ({
+  apiRequest: (...args: unknown[]) => mockApiRequest(...args),
 }));
 
 const strategyDraft = {
@@ -68,21 +60,13 @@ const backtestResult = {
 let stdout = "";
 let stderr = "";
 let originalExitCode: number | undefined;
-let originalEnv: NodeJS.ProcessEnv;
 
 beforeEach(() => {
   stdout = "";
   stderr = "";
   originalExitCode = process.exitCode;
   process.exitCode = undefined;
-  originalEnv = { ...process.env };
-  process.env.SUPABASE_URL = "http://127.0.0.1:54321";
-  process.env.SUPABASE_ANON_KEY = "anon-key";
-  delete process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  mockRpc.mockReset();
-  mockBacktest.mockReset();
-  mockCreateClient.mockClear();
+  mockApiRequest.mockReset();
 
   vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
     stdout += String(chunk);
@@ -95,7 +79,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  process.env = originalEnv;
   process.exitCode = originalExitCode;
   vi.restoreAllMocks();
 });
@@ -124,9 +107,10 @@ async function writeFixtureFiles(): Promise<{ strategyFile: string; backtestFile
 describe("publishAction", () => {
   it("publishes from backtest file and writes linkId into draft file", async () => {
     const { strategyFile, backtestFile } = await writeFixtureFiles();
-    mockRpc.mockResolvedValue({
-      data: { id: 99, linkId: "lf-testpublish", created: true },
-      error: null,
+    mockApiRequest.mockResolvedValue({
+      linkId: "lf-testpublish",
+      strategyId: 99,
+      created: true,
     });
 
     await publishAction({
@@ -138,8 +122,7 @@ describe("publishAction", () => {
 
     expect(process.exitCode).toBe(0);
     expect(stderr).toBe("");
-    expect(mockCreateClient).toHaveBeenCalledWith("http://127.0.0.1:54321", "anon-key");
-    expect(mockRpc).toHaveBeenCalledTimes(1);
+    expect(mockApiRequest).toHaveBeenCalledTimes(1);
     const parsed = JSON.parse(stdout);
     expect(parsed.ok).toBe(true);
     expect(parsed.result.linkId).toBe("lf-testpublish");
@@ -152,11 +135,13 @@ describe("publishAction", () => {
 
   it("runs inline backtest when start/end are provided", async () => {
     const { strategyFile } = await writeFixtureFiles();
-    mockBacktest.mockResolvedValue(backtestResult);
-    mockRpc.mockResolvedValue({
-      data: { id: 42, created: true },
-      error: null,
-    });
+    mockApiRequest
+      .mockResolvedValueOnce(backtestResult)
+      .mockResolvedValueOnce({
+        linkId: "lf-inline",
+        strategyId: 42,
+        created: true,
+      });
 
     await publishAction({
       file: strategyFile,
@@ -167,15 +152,21 @@ describe("publishAction", () => {
     });
 
     expect(process.exitCode).toBe(0);
-    expect(mockBacktest).toHaveBeenCalledTimes(1);
-    expect(mockBacktest).toHaveBeenCalledWith(
-      expect.objectContaining({ name: "Publish Test" }),
-      expect.objectContaining({ startDate: "2020-01-01", endDate: "2020-12-31" }),
+    expect(mockApiRequest).toHaveBeenNthCalledWith(
+      1,
+      "/api/strategy/backtest",
+      expect.objectContaining({
+        method: "POST",
+        body: expect.objectContaining({
+          startDate: "2020-01-01",
+          endDate: "2020-12-31",
+        }),
+      }),
     );
     const parsed = JSON.parse(stdout);
     expect(parsed.ok).toBe(true);
     expect(parsed.result.backtestSummary.finalValue).toBe(120000);
-    expect(parsed.result.linkId).toMatch(/^lf-/);
+    expect(parsed.result.linkId).toBe("lf-inline");
   });
 
   it("returns exit code 2 when publish options are invalid", async () => {
@@ -191,18 +182,15 @@ describe("publishAction", () => {
     });
 
     expect(process.exitCode).toBe(2);
-    expect(mockRpc).not.toHaveBeenCalled();
+    expect(mockApiRequest).not.toHaveBeenCalled();
     const parsed = JSON.parse(stdout);
     expect(parsed.ok).toBe(false);
     expect(parsed.error.code).toBe("invalid_publish_options");
   });
 
-  it("returns exit code 10 when RPC publish fails", async () => {
+  it("returns exit code 10 when publish response is malformed", async () => {
     const { strategyFile, backtestFile } = await writeFixtureFiles();
-    mockRpc.mockResolvedValue({
-      data: null,
-      error: { message: "db fail", code: "22000" },
-    });
+    mockApiRequest.mockResolvedValue({});
 
     await publishAction({
       file: strategyFile,
@@ -215,7 +203,5 @@ describe("publishAction", () => {
     const parsed = JSON.parse(stdout);
     expect(parsed.ok).toBe(false);
     expect(parsed.error.code).toBe("publish_failed");
-    expect(parsed.error.data.code).toBe("22000");
   });
 });
-
