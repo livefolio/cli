@@ -31,11 +31,10 @@ export function getLivefolio(): LivefolioClient {
     const key = process.env.SUPABASE_ANON_KEY;
 
     if (!url || !key) {
-      process.stderr.write(
-        "Error: SUPABASE_URL and SUPABASE_ANON_KEY must be set.\n" +
-        "Use --env <path> to load a .env file, or export them in your shell.\n"
+      throw new Error(
+        "SUPABASE_URL and SUPABASE_ANON_KEY must be set. " +
+        "Use --env <path> to load a .env file, or export them in your shell.",
       );
-      process.exit(1);
     }
 
     const supabase = createClient(url, key) as unknown as TypedSupabaseClient;

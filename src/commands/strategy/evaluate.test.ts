@@ -1,36 +1,58 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { evaluateAction } from './evaluate.js';
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { evaluateAction } from "./evaluate.js";
 
-// ---------------------------------------------------------------------------
-// Mock getLivefolio
-// ---------------------------------------------------------------------------
-
-const mockGet = vi.fn();
 const mockEvaluate = vi.fn();
 
-vi.mock('../../config.js', () => ({
+vi.mock("../../config.js", () => ({
   getLivefolio: () => ({
-    strategy: { get: mockGet, evaluate: mockEvaluate },
+    strategy: { evaluate: mockEvaluate },
   }),
 }));
 
-// ---------------------------------------------------------------------------
-// Capture stdout / stderr
-// ---------------------------------------------------------------------------
+const validDraft = {
+  name: "Trend + Safety",
+  trading: { frequency: "Monthly", offset: 0 },
+  signals: [
+    {
+      name: "spy_above_200d",
+      signal: {
+        left: { type: "Price", ticker: { symbol: "SPY", leverage: 1 }, lookback: 1, delay: 0, unit: "$", threshold: null },
+        comparison: ">",
+        right: { type: "SMA", ticker: { symbol: "SPY", leverage: 1 }, lookback: 200, delay: 0, unit: "$", threshold: null },
+        tolerance: 0,
+      },
+    },
+  ],
+  allocations: [
+    {
+      name: "risk_on",
+      condition: { kind: "signal", signalName: "spy_above_200d" },
+      holdings: [{ ticker: { symbol: "SPY", leverage: 1 }, weight: 100 }],
+    },
+  ],
+};
 
-let stdout: string;
-let stderr: string;
+let stdout = "";
+let stderr = "";
 let originalExitCode: number | undefined;
 
 beforeEach(() => {
-  stdout = '';
-  stderr = '';
+  stdout = "";
+  stderr = "";
   originalExitCode = process.exitCode;
   process.exitCode = undefined;
-  mockGet.mockReset();
   mockEvaluate.mockReset();
-  vi.spyOn(console, 'log').mockImplementation((msg: string) => { stdout += msg + '\n'; });
-  vi.spyOn(process.stderr, 'write').mockImplementation((msg: string) => { stderr += msg; return true; });
+  vi.spyOn(process.stdout, "write").mockImplementation((chunk: string | Uint8Array) => {
+    stdout += String(chunk);
+    return true;
+  });
+  vi.spyOn(process.stderr, "write").mockImplementation((chunk: string | Uint8Array) => {
+    stderr += String(chunk);
+    return true;
+  });
 });
 
 afterEach(() => {
@@ -38,82 +60,66 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-// ---------------------------------------------------------------------------
-// Tests
-// ---------------------------------------------------------------------------
+async function writeDraftFile(contents: unknown): Promise<string> {
+  const dir = await mkdtemp(join(tmpdir(), "livefolio-cli-"));
+  const file = join(dir, "strategy.json");
+  await writeFile(file, JSON.stringify(contents), "utf8");
+  return file;
+}
 
-describe('evaluateAction', () => {
-  it('prints error and sets exit code when strategy is not found', async () => {
-    mockGet.mockResolvedValue(null);
+describe("evaluateAction (local file)", () => {
+  it("returns structured evaluation output on success", async () => {
+    const file = await writeDraftFile(validDraft);
+    mockEvaluate.mockResolvedValue({
+      asOf: new Date("2025-06-15T12:00:00.000Z"),
+      allocation: { name: "risk_on", holdings: [{ ticker: { symbol: "SPY", leverage: 1 }, weight: 100 }] },
+      signals: { key: true },
+      indicators: { ind: { timestamp: "2025-06-15T16:00:00.000Z", value: 590 } },
+    });
 
-    await evaluateAction('abc123', {});
+    await evaluateAction({ file, at: "2025-06-15" });
 
-    expect(mockGet).toHaveBeenCalledWith('abc123');
-    expect(stderr).toBe('Error: strategy not found for link ID "abc123"\n');
-    expect(process.exitCode).toBe(1);
-    expect(mockEvaluate).not.toHaveBeenCalled();
-  });
-
-  it('outputs JSON with allocation, signals, indicators, and asOf on success', async () => {
-    const strategy = { linkId: 'abc123', name: 'Test Strategy' };
-    const evaluation = {
-      asOf: new Date('2025-06-15T12:00:00.000Z'),
-      allocation: { name: 'Default', holdings: [{ ticker: { symbol: 'SPY', leverage: 1 }, weight: 1 }] },
-      signals: { 'SMA > EMA': true },
-      indicators: { SMA: { timestamp: '2025-06-15', value: 450.5 } },
-    };
-
-    mockGet.mockResolvedValue(strategy);
-    mockEvaluate.mockResolvedValue(evaluation);
-
-    await evaluateAction('abc123', {});
-
-    expect(mockGet).toHaveBeenCalledWith('abc123');
-    expect(mockEvaluate).toHaveBeenCalledWith(strategy, expect.any(Date));
-    expect(process.exitCode).toBeUndefined();
+    expect(process.exitCode).toBe(0);
+    expect(stderr).toBe("");
+    expect(mockEvaluate).toHaveBeenCalledWith(
+      expect.objectContaining({ linkId: "local-trend-safety", name: "Trend + Safety" }),
+      new Date("2025-06-15"),
+    );
 
     const parsed = JSON.parse(stdout);
-    expect(parsed.asOf).toBe('2025-06-15T12:00:00.000Z');
-    expect(parsed.allocation.name).toBe('Default');
-    expect(parsed.signals['SMA > EMA']).toBe(true);
-    expect(parsed.indicators.SMA.value).toBe(450.5);
+    expect(parsed.ok).toBe(true);
+    expect(parsed.result.file).toBe(file);
+    expect(parsed.result.evaluation.allocation.name).toBe("risk_on");
   });
 
-  it('passes --at date to evaluate', async () => {
-    const strategy = { linkId: 'abc123', name: 'Test Strategy' };
-    const evaluation = { asOf: new Date('2025-06-15T12:00:00.000Z'), allocation: {}, signals: {}, indicators: {} };
+  it("returns exit code 2 for invalid --at date", async () => {
+    const file = await writeDraftFile(validDraft);
 
-    mockGet.mockResolvedValue(strategy);
-    mockEvaluate.mockResolvedValue(evaluation);
+    await evaluateAction({ file, at: "not-a-date" });
 
-    await evaluateAction('abc123', { at: '2025-06-15' });
-
-    expect(mockEvaluate).toHaveBeenCalledWith(strategy, new Date('2025-06-15'));
+    expect(process.exitCode).toBe(2);
+    expect(stderr).toBe("");
+    expect(mockEvaluate).not.toHaveBeenCalled();
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error.code).toBe("invalid_date");
   });
 
-  it('prints error for invalid --at date', async () => {
-    await evaluateAction('abc123', { at: 'not-a-date' });
+  it("returns exit code 4 for compile failures", async () => {
+    const bad = {
+      ...validDraft,
+      allocations: [{
+        name: "broken",
+        condition: { kind: "signal", signalName: "missing_signal" },
+        holdings: [{ ticker: { symbol: "SPY", leverage: 1 }, weight: 100 }],
+      }],
+    };
+    const file = await writeDraftFile(bad);
 
-    expect(stderr).toBe('Error: invalid date "not-a-date"\n');
-    expect(process.exitCode).toBe(1);
-    expect(mockGet).not.toHaveBeenCalled();
-  });
+    await evaluateAction({ file });
 
-  it('prints Error message to stderr on failure', async () => {
-    mockGet.mockRejectedValue(new Error('Network timeout'));
-
-    await evaluateAction('abc123', {});
-
-    expect(stderr).toBe('Error: Network timeout\n');
-    expect(process.exitCode).toBe(1);
-  });
-
-  it('coerces non-Error thrown values to string', async () => {
-    mockGet.mockRejectedValue(42);
-
-    await evaluateAction('abc123', {});
-
-    expect(stderr).toBe('Error: 42\n');
-    expect(process.exitCode).toBe(1);
+    expect(process.exitCode).toBe(4);
+    expect(stderr).toBe("");
+    const parsed = JSON.parse(stdout);
+    expect(parsed.error.code).toBe("compile_failed");
   });
 });

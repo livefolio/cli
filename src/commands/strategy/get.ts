@@ -1,19 +1,23 @@
-import { getLivefolio } from "../../config.js";
+import { apiRequest } from "../../auth/api.js";
+import {
+  notFound,
+  runStrategyAction,
+} from "./contract.js";
 
 export async function getAction(linkId: string): Promise<void> {
-  try {
-    const strategy = await getLivefolio().strategy.get(linkId);
+  await runStrategyAction(async () => {
+    const response = await apiRequest(`/api/strategy/${encodeURIComponent(linkId)}`);
+    const strategy = response && typeof response === "object" && "strategy" in response
+      ? (response as { strategy?: unknown }).strategy
+      : null;
 
     if (!strategy) {
-      process.stderr.write(`Error: strategy not found for link ID "${linkId}"\n`);
-      process.exitCode = 1;
-      return;
+      throw notFound("strategy_not_found", "Strategy not found.", { linkId });
     }
 
-    console.log(JSON.stringify(strategy, null, 2));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`Error: ${message}\n`);
-    process.exitCode = 1;
-  }
+    return {
+      linkId,
+      strategy,
+    };
+  });
 }

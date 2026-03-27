@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { program } from "commander";
 import { loadEnvFile } from "./config.js";
+import { registerAuth } from "./commands/auth/index.js";
 import { registerMarket } from "./commands/market/index.js";
 import { registerStrategy } from "./commands/strategy/index.js";
 
@@ -19,5 +20,6 @@ program
 
 registerMarket(program);
 registerStrategy(program);
+registerAuth(program);
 
 program.parse();

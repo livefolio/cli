@@ -1,28 +1,24 @@
 import { getLivefolio } from "../../config.js";
+import { runStrategyAction } from "./contract.js";
+import { compileLocalDraftOrThrow } from "./compile-local.js";
+import {
+  parseAtDate,
+  readLocalStrategyDraft,
+} from "./local-file.js";
 
-export async function evaluateAction(linkId: string, options: { at?: string }): Promise<void> {
-  try {
-    const at = options.at ? new Date(options.at) : new Date();
-
-    if (isNaN(at.getTime())) {
-      process.stderr.write(`Error: invalid date "${options.at}"\n`);
-      process.exitCode = 1;
-      return;
-    }
-
-    const strategy = await getLivefolio().strategy.get(linkId);
-
-    if (!strategy) {
-      process.stderr.write(`Error: strategy not found for link ID "${linkId}"\n`);
-      process.exitCode = 1;
-      return;
-    }
-
-    const result = await getLivefolio().strategy.evaluate(strategy, at);
-    console.log(JSON.stringify(result, null, 2));
-  } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    process.stderr.write(`Error: ${message}\n`);
-    process.exitCode = 1;
-  }
+export async function evaluateAction(options: {
+  file: string;
+  at?: string;
+}): Promise<void> {
+  await runStrategyAction(async () => {
+    const draft = await readLocalStrategyDraft(options.file);
+    const strategy = compileLocalDraftOrThrow(draft);
+    const at = parseAtDate(options.at);
+    const evaluation = await getLivefolio().strategy.evaluate(strategy, at);
+    return {
+      file: options.file,
+      evaluation,
+    };
+  });
 }
+
