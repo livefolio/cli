@@ -17,11 +17,19 @@ export const loginCommand = new Command('login')
       return
     }
 
-    // Start local server for callback
+    // Start local server for callback on fixed port (must match registered redirect_uri)
+    const CALLBACK_PORT = 19821
     const server = http.createServer()
-    const port = await new Promise<number>((resolve) => {
-      server.listen(0, '127.0.0.1', () => {
-        resolve((server.address() as { port: number }).port)
+    const port = await new Promise<number>((resolve, reject) => {
+      server.on('error', (err: NodeJS.ErrnoException) => {
+        if (err.code === 'EADDRINUSE') {
+          reject(new Error(`Port ${CALLBACK_PORT} is in use. Close the other process and try again.`))
+        } else {
+          reject(err)
+        }
+      })
+      server.listen(CALLBACK_PORT, '127.0.0.1', () => {
+        resolve(CALLBACK_PORT)
       })
     })
 
