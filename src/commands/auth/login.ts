@@ -75,6 +75,13 @@ export const loginCommand = new Command('login')
       })
     })
 
+    // Validate state to prevent CSRF
+    if (result.state !== state) {
+      process.stderr.write('Error: OAuth state mismatch — possible CSRF attack\n')
+      process.exitCode = 1
+      return
+    }
+
     // Exchange code for tokens
     const tokens = await livefolio.auth.exchangeCodeForTokens(
       result.code,
