@@ -25,6 +25,18 @@ export function loadEnvFile(filePath: string): void {
 
 let client: LivefolioClient | null = null;
 
+export function getSupabaseUrl(): string {
+  const url = process.env.SUPABASE_URL;
+  if (!url) {
+    process.stderr.write(
+      "Error: SUPABASE_URL and SUPABASE_ANON_KEY must be set.\n" +
+      "Use --env <path> to load a .env file, or export them in your shell.\n"
+    );
+    process.exit(1);
+  }
+  return url;
+}
+
 export function getLivefolio(): LivefolioClient {
   if (!client) {
     const url = process.env.SUPABASE_URL;
@@ -39,7 +51,7 @@ export function getLivefolio(): LivefolioClient {
     }
 
     const supabase = createClient(url, key) as unknown as TypedSupabaseClient;
-    client = createLivefolioClient(supabase);
+    client = createLivefolioClient(supabase, { supabaseUrl: url });
   }
   return client;
 }
