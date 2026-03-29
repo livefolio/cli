@@ -4,4 +4,7 @@ dist/
 .env*
 !.env.example
 
+.claude
+.omc
+.railguard
 railguard.yaml
