@@ -20,8 +20,6 @@ export const statusCommand = new Command('status')
       process.stdout.write('Logged in\n')
     }
 
-    process.stdout.write(`Supabase URL: ${tokens.supabaseUrl}\n`)
-
     if (isExpired) {
       process.stdout.write('Token status: expired\n')
     } else {
