@@ -43,6 +43,7 @@
     "vitest": "^3"
   },
   "dependencies": {
+    "@livefolio/sdk": "file:../sdk",
     "commander": "^13"
   }
 }
