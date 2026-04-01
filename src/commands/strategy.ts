@@ -89,9 +89,17 @@ export function parseStrategyJson(input: string): ParsedStrategy {
       }
     }
 
+    const hold = rule.hold as Record<string, number>;
+    const weightSum = Object.values(hold).reduce((a, b) => a + b, 0);
+    if (Math.abs(weightSum - 1) > 1e-9) {
+      throw new Error(
+        `Rule ${i + 1}: hold weights must sum to 1, got ${weightSum}`,
+      );
+    }
+
     rules.push({
       signals,
-      hold: rule.hold as Record<string, number>,
+      hold,
     });
   }
 

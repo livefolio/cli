@@ -86,6 +86,14 @@ describe("parseStrategyJson", () => {
     expect(() => parseStrategyJson(input)).toThrow(/hold.*required/i);
   });
 
+  it("throws when hold weights do not sum to 1", () => {
+    const input = JSON.stringify({
+      name: "Test",
+      rules: [{ hold: { SPY: 0.3, CASHX: 0.2 } }],
+    });
+    expect(() => parseStrategyJson(input)).toThrow(/weights must sum to 1/i);
+  });
+
   it("throws on invalid freq", () => {
     const input = JSON.stringify({
       name: "Test",
