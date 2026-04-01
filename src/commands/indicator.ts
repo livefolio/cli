@@ -53,6 +53,25 @@ export function resolveType(input: string): string | null {
   return TYPE_MAP[input.toLowerCase()] ?? null;
 }
 
+export function parseTicker(input: string): {
+  symbol: string;
+  leverage?: number;
+} {
+  const idx = input.indexOf("?");
+  if (idx === -1) return { symbol: input };
+
+  const symbol = input.slice(0, idx);
+  const params = new URLSearchParams(input.slice(idx + 1));
+  const l = params.get("L");
+  if (l === null) return { symbol };
+
+  const leverage = Number(l);
+  if (!Number.isInteger(leverage) || leverage <= 0) {
+    throw new Error(`Invalid leverage "${l}" — must be a positive integer`);
+  }
+  return { symbol, leverage };
+}
+
 export function validateArgs(
   type: string,
   ticker: string | undefined,
@@ -177,7 +196,8 @@ export function makeIndicatorCommand(): Command {
           const toSet = new Set<string>(TICKER_ONLY_TYPES);
 
           if (tlSet.has(type)) {
-            const t = client.ticker(ticker!);
+            const parsed = parseTicker(ticker!);
+            const t = client.ticker(parsed.symbol, parsed.leverage);
             const lb = Number(lookback);
             const method = type.toLowerCase() as
               | "sma"
@@ -191,7 +211,11 @@ export function makeIndicatorCommand(): Command {
               handle = client[method](t, lb, delayOpt);
             }
           } else if (toSet.has(type)) {
-            handle = client.price(client.ticker(ticker!), delayOpt);
+            const parsed = parseTicker(ticker!);
+            handle = client.price(
+              client.ticker(parsed.symbol, parsed.leverage),
+              delayOpt,
+            );
           } else if (type === "VIX") {
             handle = client.vix(delayOpt);
           } else if (type === "VIX3M") {

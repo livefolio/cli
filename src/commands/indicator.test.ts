@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   resolveType,
+  parseTicker,
   validateArgs,
   TICKER_LOOKBACK_TYPES,
   TICKER_ONLY_TYPES,
@@ -68,5 +69,27 @@ describe("validateArgs", () => {
     expect(validateArgs("SMA", "SPY", "-5")).toMatch(/positive integer/);
     expect(validateArgs("SMA", "SPY", "abc")).toMatch(/positive integer/);
     expect(validateArgs("SMA", "SPY", "3.5")).toMatch(/positive integer/);
+  });
+});
+
+describe("parseTicker", () => {
+  it("returns symbol only when no params", () => {
+    expect(parseTicker("SPY")).toEqual({ symbol: "SPY" });
+  });
+
+  it("parses leverage from ?L=N", () => {
+    expect(parseTicker("SPY?L=3")).toEqual({ symbol: "SPY", leverage: 3 });
+    expect(parseTicker("QQQ?L=2")).toEqual({ symbol: "QQQ", leverage: 2 });
+  });
+
+  it("ignores unknown params", () => {
+    expect(parseTicker("SPY?foo=bar")).toEqual({ symbol: "SPY" });
+  });
+
+  it("throws on invalid leverage", () => {
+    expect(() => parseTicker("SPY?L=0")).toThrow(/positive integer/);
+    expect(() => parseTicker("SPY?L=-1")).toThrow(/positive integer/);
+    expect(() => parseTicker("SPY?L=abc")).toThrow(/positive integer/);
+    expect(() => parseTicker("SPY?L=1.5")).toThrow(/positive integer/);
   });
 });
