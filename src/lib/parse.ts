@@ -23,6 +23,7 @@ export interface IndicatorSpec {
   leverage?: number;
   lookback?: number;
   value?: number;
+  delay?: number;
 }
 
 type Comparison = ">" | "<" | "=";
@@ -31,12 +32,30 @@ export interface SignalSpec {
   indicator1: IndicatorSpec;
   indicator2: IndicatorSpec;
   comparison: Comparison;
+  tolerance: number;
 }
 
 // --- Indicator spec parsing ---
 
 export function parseIndicatorSpec(input: string): IndicatorSpec {
   const parts = input.trim().split(/\s+/);
+
+  // Strip trailing @<int> delay token (not applicable to thresholds, but we
+  // parse it first so the rest of the logic sees a clean token list).
+  let delay: number | undefined;
+  const lastToken = parts[parts.length - 1];
+  if (lastToken.startsWith("@")) {
+    const raw = lastToken.slice(1);
+    const parsed = Number(raw);
+    if (!Number.isInteger(parsed) || raw === "") {
+      throw new Error(
+        `Delay must be an integer (e.g. @5 or @-3), got "${lastToken}"`,
+      );
+    }
+    delay = parsed;
+    parts.pop();
+  }
+
   const rawType = parts[0];
 
   if (isThresholdType(rawType)) {
@@ -82,6 +101,7 @@ export function parseIndicatorSpec(input: string): IndicatorSpec {
       ticker: parsed.symbol,
       leverage: parsed.leverage,
       lookback: lb,
+      ...(delay !== undefined && { delay }),
     };
   }
 
@@ -90,10 +110,15 @@ export function parseIndicatorSpec(input: string): IndicatorSpec {
       throw new Error(`${type.toLowerCase()} requires <ticker>`);
     }
     const parsed = parseTicker(parts[1]);
-    return { type, ticker: parsed.symbol, leverage: parsed.leverage };
+    return {
+      type,
+      ticker: parsed.symbol,
+      leverage: parsed.leverage,
+      ...(delay !== undefined && { delay }),
+    };
   }
 
-  return { type };
+  return { type, ...(delay !== undefined && { delay }) };
 }
 
 // --- Signal string parsing ---
@@ -101,6 +126,22 @@ export function parseIndicatorSpec(input: string): IndicatorSpec {
 const OPERATOR_RE = / ([><=]) /;
 
 export function parseSignalSpec(input: string): SignalSpec {
+  // Strip trailing ~<number> tolerance suffix before any other parsing.
+  let tolerance = 0;
+  const toleranceMatch = input.match(/ ~(\S+)$/);
+  if (toleranceMatch) {
+    const raw = toleranceMatch[1];
+    const parsed = Number(raw);
+    if (isNaN(parsed)) {
+      throw new Error(`Tolerance must be a number (e.g. ~0.5), got "~${raw}"`);
+    }
+    if (parsed < 0) {
+      throw new Error(`Tolerance must be non-negative, got "~${raw}"`);
+    }
+    tolerance = parsed;
+    input = input.slice(0, input.length - toleranceMatch[0].length);
+  }
+
   const match = input.match(OPERATOR_RE);
   if (!match || match.index === undefined) {
     throw new Error(
@@ -123,6 +164,7 @@ export function parseSignalSpec(input: string): SignalSpec {
     indicator1: parseIndicatorSpec(ind1Str),
     indicator2: parseIndicatorSpec(ind2Str),
     comparison,
+    tolerance,
   };
 }
 
@@ -152,6 +194,8 @@ export function buildIndicatorHandle(
   const tlSet = new Set<string>(TICKER_LOOKBACK_TYPES);
   const toSet = new Set<string>(TICKER_ONLY_TYPES);
 
+  const delayOpt = spec.delay !== undefined ? { delay: spec.delay } : undefined;
+
   if (spec.type === THRESHOLD_TYPE) {
     return client.threshold(spec.value!);
   }
@@ -160,7 +204,7 @@ export function buildIndicatorHandle(
     const t = client.ticker(spec.ticker!, spec.leverage);
     const lb = spec.lookback!;
     if (spec.type === "Return") {
-      return client.returns(t, lb);
+      return client.returns(t, lb, delayOpt);
     }
     const method = spec.type.toLowerCase() as
       | "sma"
@@ -168,17 +212,20 @@ export function buildIndicatorHandle(
       | "rsi"
       | "volatility"
       | "drawdown";
-    return client[method](t, lb);
+    return client[method](t, lb, delayOpt);
   }
 
   if (toSet.has(spec.type)) {
-    return client.price(client.ticker(spec.ticker!, spec.leverage));
+    return client.price(client.ticker(spec.ticker!, spec.leverage), delayOpt);
   }
 
-  if (spec.type === "VIX") return client.vix();
-  if (spec.type === "VIX3M") return client.vix3m();
+  if (spec.type === "VIX") return client.vix(delayOpt);
+  if (spec.type === "VIX3M") return client.vix3m(delayOpt);
 
-  return client.treasury(spec.type as Parameters<typeof client.treasury>[0]);
+  return client.treasury(
+    spec.type as Parameters<typeof client.treasury>[0],
+    delayOpt,
+  );
 }
 
 export function buildSignalHandle(
