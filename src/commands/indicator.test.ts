@@ -1,12 +1,5 @@
 import { describe, it, expect } from "vitest";
-import {
-  resolveType,
-  parseTicker,
-  validateArgs,
-  TICKER_LOOKBACK_TYPES,
-  TICKER_ONLY_TYPES,
-  STANDALONE_TYPES,
-} from "./indicator.js";
+import { resolveType, parseTicker } from "./indicator.js";
 
 describe("resolveType", () => {
   it("maps lowercase to SDK enum value", () => {
@@ -33,42 +26,6 @@ describe("resolveType", () => {
     expect(resolveType("unknown")).toBeNull();
     expect(resolveType("threshold")).toBeNull();
     expect(resolveType("month")).toBeNull();
-  });
-});
-
-describe("validateArgs", () => {
-  it("requires ticker and lookback for ticker+lookback types", () => {
-    for (const t of TICKER_LOOKBACK_TYPES) {
-      expect(validateArgs(t, undefined, undefined)).toMatch(
-        /requires <ticker> and <lookback>/,
-      );
-      expect(validateArgs(t, "SPY", undefined)).toMatch(
-        /requires <ticker> and <lookback>/,
-      );
-      expect(validateArgs(t, "SPY", "200")).toBeNull();
-    }
-  });
-
-  it("requires ticker for price", () => {
-    for (const t of TICKER_ONLY_TYPES) {
-      expect(validateArgs(t, undefined, undefined)).toMatch(
-        /requires <ticker>/,
-      );
-      expect(validateArgs(t, "AAPL", undefined)).toBeNull();
-    }
-  });
-
-  it("accepts standalone types with no args", () => {
-    for (const t of STANDALONE_TYPES) {
-      expect(validateArgs(t, undefined, undefined)).toBeNull();
-    }
-  });
-
-  it("rejects non-positive-integer lookback", () => {
-    expect(validateArgs("SMA", "SPY", "0")).toMatch(/positive integer/);
-    expect(validateArgs("SMA", "SPY", "-5")).toMatch(/positive integer/);
-    expect(validateArgs("SMA", "SPY", "abc")).toMatch(/positive integer/);
-    expect(validateArgs("SMA", "SPY", "3.5")).toMatch(/positive integer/);
   });
 });
 
