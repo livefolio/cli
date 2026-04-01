@@ -176,10 +176,106 @@ function makePostCommand(): Command {
     });
 }
 
+function validateDate(value: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) && !isNaN(Date.parse(value));
+}
+
+function makeRunCommand(): Command {
+  return new Command("run")
+    .description("Simulate a strategy and print results as JSON")
+    .argument("<link_id>", "strategy link_id")
+    .option("--from <date>", "start date (YYYY-MM-DD)")
+    .option("--to <date>", "end date (YYYY-MM-DD)")
+    .requiredOption("--capital <number>", "initial capital in dollars")
+    .action(async (linkId: string, opts) => {
+      if (opts.from && !validateDate(opts.from)) {
+        console.error("Error: --from must be a valid date (YYYY-MM-DD)");
+        process.exit(1);
+      }
+      if (opts.to && !validateDate(opts.to)) {
+        console.error("Error: --to must be a valid date (YYYY-MM-DD)");
+        process.exit(1);
+      }
+
+      const capital = Number(opts.capital);
+      if (isNaN(capital) || capital <= 0) {
+        console.error("Error: --capital must be a positive number");
+        process.exit(1);
+      }
+
+      let env;
+      try {
+        env = readEnv();
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+
+      const client = buildClient(env);
+
+      try {
+        const strategy = client.strategy(linkId);
+
+        let from = opts.from;
+        let to = opts.to;
+
+        if (!from || !to) {
+          const bars = await strategy.series();
+          if (bars.length === 0) {
+            console.error("Error: strategy has no data");
+            process.exit(1);
+          }
+          if (!from) from = bars[0].date;
+          if (!to) to = bars[bars.length - 1].date;
+        }
+
+        const portfolio = client.portfolio([client.ticker("CASHX"), capital]);
+        const sim = await strategy.simulate({ from, to, portfolio });
+
+        console.log(
+          JSON.stringify({ series: sim.series, trades: sim.trades }, null, 2),
+        );
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
+        console.error(`Error: ${msg}`);
+        process.exit(1);
+      }
+    });
+}
+
+function makeGetCommand(): Command {
+  return new Command("get")
+    .description("Show a strategy definition as JSON")
+    .argument("<link_id>", "strategy link_id")
+    .action(async (linkId: string) => {
+      let env;
+      try {
+        env = readEnv();
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+
+      const client = buildClient(env);
+
+      try {
+        const strategy = client.strategy(linkId);
+        const row = await strategy.resolve();
+        console.log(JSON.stringify(row, null, 2));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
+        console.error(`Error: ${msg}`);
+        process.exit(1);
+      }
+    });
+}
+
 export function makeStrategyCommand(): Command {
   const cmd = new Command("strategy").description(
     "Create, simulate, and inspect strategies",
   );
   cmd.addCommand(makePostCommand());
+  cmd.addCommand(makeRunCommand());
+  cmd.addCommand(makeGetCommand());
   return cmd;
 }
