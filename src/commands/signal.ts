@@ -3,96 +3,12 @@ import type { DailyBar } from "@livefolio/sdk";
 import { readEnv, buildClient } from "../lib/client.js";
 import { formatTable, formatJson, formatCsv } from "../lib/format.js";
 import {
-  resolveType,
-  parseTicker,
-  TICKER_LOOKBACK_TYPES,
-  TICKER_ONLY_TYPES,
-  STANDALONE_TYPES,
-} from "./indicator.js";
+  parseIndicatorSpec,
+  buildIndicatorHandle,
+  needsFredKey,
+} from "../lib/parse.js";
 
-// --- Threshold handling (not in indicator.ts) ---
-
-const THRESHOLD_TYPE = "Threshold";
-
-function isThresholdType(input: string): boolean {
-  return input.toLowerCase() === "threshold";
-}
-
-// --- All valid types including threshold ---
-
-const ALL_TYPES = [
-  ...TICKER_LOOKBACK_TYPES,
-  ...TICKER_ONLY_TYPES,
-  ...STANDALONE_TYPES,
-].map((t) => t.toLowerCase());
-
-// --- Exported helpers ---
-
-export interface IndicatorSpec {
-  type: string;
-  ticker?: string;
-  leverage?: number;
-  lookback?: number;
-  value?: number;
-}
-
-export function parseIndicatorSpec(input: string): IndicatorSpec {
-  const parts = input.trim().split(/\s+/);
-  const rawType = parts[0];
-
-  // Handle threshold specially
-  if (isThresholdType(rawType)) {
-    if (parts.length < 2) {
-      throw new Error("Threshold requires a <value>");
-    }
-    const v = Number(parts[1]);
-    if (isNaN(v)) {
-      throw new Error(`Threshold value must be a number, got "${parts[1]}"`);
-    }
-    return { type: THRESHOLD_TYPE, value: v };
-  }
-
-  const type = resolveType(rawType);
-  if (!type) {
-    throw new Error(
-      `Unknown indicator type "${rawType}". Available: ${ALL_TYPES.join(", ")}`,
-    );
-  }
-
-  const tlSet = new Set<string>(TICKER_LOOKBACK_TYPES);
-  const toSet = new Set<string>(TICKER_ONLY_TYPES);
-
-  if (tlSet.has(type)) {
-    if (parts.length < 2) {
-      throw new Error(`${type.toLowerCase()} requires <ticker> and <lookback>`);
-    }
-    if (parts.length < 3) {
-      throw new Error(`${type.toLowerCase()} requires <ticker> and <lookback>`);
-    }
-    const parsed = parseTicker(parts[1]);
-    const lb = Number(parts[2]);
-    if (!Number.isInteger(lb) || lb <= 0) {
-      throw new Error("Lookback must be a positive integer");
-    }
-    return {
-      type,
-      ticker: parsed.symbol,
-      leverage: parsed.leverage,
-      lookback: lb,
-    };
-  }
-
-  if (toSet.has(type)) {
-    if (parts.length < 2) {
-      throw new Error(`${type.toLowerCase()} requires <ticker>`);
-    }
-    const parsed = parseTicker(parts[1]);
-    return { type, ticker: parsed.symbol, leverage: parsed.leverage };
-  }
-
-  // Standalone
-  return { type };
-}
+// --- Comparison validation (kept here for signal CLI arg parsing) ---
 
 type Comparison = ">" | "<" | "=";
 
@@ -161,59 +77,6 @@ function formatBars(bars: DailyBar[], fmt: Format): string {
   }
 }
 
-const TREASURY_TYPES = new Set([
-  "T3M",
-  "T6M",
-  "T1Y",
-  "T2Y",
-  "T3Y",
-  "T5Y",
-  "T7Y",
-  "T10Y",
-  "T20Y",
-  "T30Y",
-]);
-
-function needsFredKey(spec: IndicatorSpec): boolean {
-  return TREASURY_TYPES.has(spec.type);
-}
-
-function buildHandle(
-  client: ReturnType<typeof buildClient>,
-  spec: IndicatorSpec,
-) {
-  const tlSet = new Set<string>(TICKER_LOOKBACK_TYPES);
-  const toSet = new Set<string>(TICKER_ONLY_TYPES);
-
-  if (spec.type === THRESHOLD_TYPE) {
-    return client.threshold(spec.value!);
-  }
-
-  if (tlSet.has(spec.type)) {
-    const t = client.ticker(spec.ticker!, spec.leverage);
-    const lb = spec.lookback!;
-    if (spec.type === "Return") {
-      return client.returns(t, lb);
-    }
-    const method = spec.type.toLowerCase() as
-      | "sma"
-      | "ema"
-      | "rsi"
-      | "volatility"
-      | "drawdown";
-    return client[method](t, lb);
-  }
-
-  if (toSet.has(spec.type)) {
-    return client.price(client.ticker(spec.ticker!, spec.leverage));
-  }
-
-  if (spec.type === "VIX") return client.vix();
-  if (spec.type === "VIX3M") return client.vix3m();
-
-  return client.treasury(spec.type as Parameters<typeof client.treasury>[0]);
-}
-
 export function makeSignalCommand(): Command {
   const cmd = new Command("signal")
     .description("Evaluate a signal comparing two indicators")
@@ -272,8 +135,8 @@ export function makeSignalCommand(): Command {
       const tolerance = Number(opts.tolerance);
 
       try {
-        const handle1 = buildHandle(client, spec1);
-        const handle2 = buildHandle(client, spec2);
+        const handle1 = buildIndicatorHandle(client, spec1);
+        const handle2 = buildIndicatorHandle(client, spec2);
 
         let signalHandle;
         if (comp === ">") {

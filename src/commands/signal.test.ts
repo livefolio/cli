@@ -1,9 +1,6 @@
 import { describe, it, expect } from "vitest";
-import {
-  parseIndicatorSpec,
-  resolveComparison,
-  validateSignalArgs,
-} from "./signal.js";
+import { parseIndicatorSpec } from "../lib/parse.js";
+import { resolveComparison, validateSignalArgs } from "./signal.js";
 
 describe("parseIndicatorSpec", () => {
   it("parses standalone types", () => {
