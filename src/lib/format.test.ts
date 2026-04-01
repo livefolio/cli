@@ -8,14 +8,17 @@ const bars = [
 ];
 
 describe("formatTable", () => {
-  it("formats bars as padded columns", () => {
+  it("formats bars as bordered table", () => {
     const result = formatTable(bars);
     expect(result).toBe(
       [
-        "DATE        VALUE",
-        "2025-01-02  478.32",
-        "2025-01-03  479.15",
-        "2025-01-06  1480.01",
+        "┌────────────┬─────────┐",
+        "│ DATE       │ VALUE   │",
+        "├────────────┼─────────┤",
+        "│ 2025-01-02 │  478.32 │",
+        "│ 2025-01-03 │  479.15 │",
+        "│ 2025-01-06 │ 1480.01 │",
+        "└────────────┴─────────┘",
       ].join("\n"),
     );
   });
