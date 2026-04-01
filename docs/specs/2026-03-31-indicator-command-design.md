@@ -48,7 +48,7 @@ Validated in this order:
    - Standalone type with extra positional args: ignored.
 3. **Lookback is a positive integer** — `"Error: lookback must be a positive integer"`
 4. **Date format** — `--from` / `--to` must be valid YYYY-MM-DD.
-5. **Environment variables** — `SUPABASE_URL` and `SUPABASE_ANON_KEY` required. Treasury types also require `FRED_API_KEY`. Missing vars produce a specific error message.
+5. **Environment variables** — `SUPABASE_URL` and `SUPABASE_KEY` required. Treasury types also require `FRED_API_KEY`. Missing vars produce a specific error message.
 
 All errors go to stderr with non-zero exit code.
 
@@ -118,5 +118,5 @@ All configuration via environment variables:
 | Variable | Required | Used by |
 |---|---|---|
 | `SUPABASE_URL` | Always | Supabase client |
-| `SUPABASE_ANON_KEY` | Always | Supabase client |
+| `SUPABASE_KEY` | Always | Supabase client |
 | `FRED_API_KEY` | Treasury types only | FRED provider |
