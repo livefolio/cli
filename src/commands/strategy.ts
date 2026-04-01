@@ -108,7 +108,9 @@ export function parseStrategyJson(input: string): ParsedStrategy {
 
 function buildStrategyHandles(client: LivefolioClient, parsed: ParsedStrategy) {
   const rules = parsed.rules.map((rule) => {
-    const when = rule.signals.map((sig) => buildSignalHandle(client, sig));
+    const when = rule.signals.map((sig) =>
+      buildSignalHandle(client, sig, sig.tolerance),
+    );
 
     const holdPairs = Object.entries(rule.hold).map(([sym, weight]) => {
       const { symbol, leverage } = parseTicker(sym);

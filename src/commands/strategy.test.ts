@@ -25,6 +25,7 @@ describe("parseStrategyJson", () => {
       indicator1: { type: "SMA", ticker: "SPY", lookback: 50 },
       indicator2: { type: "SMA", ticker: "SPY", lookback: 200 },
       comparison: ">",
+      tolerance: 0,
     });
     expect(result.rules[0].hold).toEqual({ SPY: 0.6, CASHX: 0.4 });
     expect(result.rules[1].signals).toEqual([]);
@@ -112,6 +113,37 @@ describe("parseStrategyJson", () => {
       ],
     });
     expect(() => parseStrategyJson(input)).toThrow(/invalid signal spec/i);
+  });
+
+  it("parses strategy with signal tolerance", () => {
+    const input = JSON.stringify({
+      name: "Tolerant",
+      rules: [
+        {
+          when: ["SMA SPY 50 > SMA SPY 200 ~2"],
+          hold: { SPY: 1 },
+        },
+        { hold: { CASHX: 1 } },
+      ],
+    });
+    const result = parseStrategyJson(input);
+    expect(result.rules[0].signals[0].tolerance).toBe(2);
+  });
+
+  it("parses strategy with signal delay and tolerance", () => {
+    const input = JSON.stringify({
+      name: "Full",
+      rules: [
+        {
+          when: ["Price SPY @1 > SMA SPY 200 ~2"],
+          hold: { SPY: 1 },
+        },
+        { hold: { CASHX: 1 } },
+      ],
+    });
+    const result = parseStrategyJson(input);
+    expect(result.rules[0].signals[0].indicator1.delay).toBe(1);
+    expect(result.rules[0].signals[0].tolerance).toBe(2);
   });
 
   it("parses hold with leveraged ticker", () => {
