@@ -1,6 +1,5 @@
 import { describe, it, expect } from "vitest";
 import { parseIndicatorSpec } from "../lib/parse.js";
-import { resolveComparison, validateSignalArgs } from "./signal.js";
 
 describe("parseIndicatorSpec", () => {
   it("parses standalone types", () => {
@@ -91,65 +90,5 @@ describe("parseIndicatorSpec", () => {
     expect(() => parseIndicatorSpec("threshold abc")).toThrow(
       /must be a number/i,
     );
-  });
-});
-
-describe("resolveComparison", () => {
-  it("maps gt/lt/eq to operators", () => {
-    expect(resolveComparison("gt")).toBe(">");
-    expect(resolveComparison("lt")).toBe("<");
-    expect(resolveComparison("eq")).toBe("=");
-  });
-
-  it("is case-insensitive", () => {
-    expect(resolveComparison("GT")).toBe(">");
-    expect(resolveComparison("Lt")).toBe("<");
-  });
-
-  it("returns null for unknown operators", () => {
-    expect(resolveComparison("gte")).toBeNull();
-    expect(resolveComparison(">")).toBeNull();
-    expect(resolveComparison("foo")).toBeNull();
-  });
-});
-
-describe("validateSignalArgs", () => {
-  it("accepts valid signal arguments", () => {
-    expect(validateSignalArgs("gt", "price SPY", "sma SPY 200")).toBeNull();
-    expect(validateSignalArgs("lt", "rsi SPY 14", "threshold 30")).toBeNull();
-    expect(validateSignalArgs("eq", "vix", "vix3m")).toBeNull();
-  });
-
-  it("rejects unknown comparison operator", () => {
-    expect(validateSignalArgs("gte", "vix", "vix3m")).toMatch(
-      /unknown comparison/i,
-    );
-  });
-
-  it("reports invalid indicator1 spec", () => {
-    expect(validateSignalArgs("gt", "unknown SPY", "vix")).toMatch(
-      /indicator 1/i,
-    );
-  });
-
-  it("reports invalid indicator2 spec", () => {
-    expect(validateSignalArgs("gt", "vix", "unknown SPY")).toMatch(
-      /indicator 2/i,
-    );
-  });
-
-  it("validates tolerance option", () => {
-    expect(
-      validateSignalArgs("gt", "vix", "vix3m", { tolerance: "0.5" }),
-    ).toBeNull();
-    expect(
-      validateSignalArgs("gt", "vix", "vix3m", { tolerance: "0" }),
-    ).toBeNull();
-    expect(
-      validateSignalArgs("gt", "vix", "vix3m", { tolerance: "abc" }),
-    ).toMatch(/tolerance.*number/i);
-    expect(
-      validateSignalArgs("gt", "vix", "vix3m", { tolerance: "-1" }),
-    ).toMatch(/tolerance.*non-negative/i);
   });
 });

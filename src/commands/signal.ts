@@ -3,62 +3,10 @@ import type { DailyBar } from "@livefolio/sdk";
 import { readEnv, buildClient } from "../lib/client.js";
 import { formatTable, formatJson, formatCsv } from "../lib/format.js";
 import {
-  parseIndicatorSpec,
-  buildIndicatorHandle,
+  parseSignalSpec,
+  buildSignalHandle,
   needsFredKey,
 } from "../lib/parse.js";
-
-// --- Comparison validation (kept here for signal CLI arg parsing) ---
-
-type Comparison = ">" | "<" | "=";
-
-const COMP_MAP: Record<string, Comparison> = {
-  gt: ">",
-  lt: "<",
-  eq: "=",
-};
-
-export function resolveComparison(input: string): Comparison | null {
-  return COMP_MAP[input.toLowerCase()] ?? null;
-}
-
-export function validateSignalArgs(
-  compArg: string,
-  ind1Arg: string,
-  ind2Arg: string,
-  opts?: { tolerance?: string },
-): string | null {
-  const comp = resolveComparison(compArg);
-  if (!comp) {
-    return `Error: unknown comparison "${compArg}". Use gt, lt, or eq`;
-  }
-
-  try {
-    parseIndicatorSpec(ind1Arg);
-  } catch (e) {
-    return `Error in indicator 1: ${(e as Error).message}`;
-  }
-
-  try {
-    parseIndicatorSpec(ind2Arg);
-  } catch (e) {
-    return `Error in indicator 2: ${(e as Error).message}`;
-  }
-
-  if (opts?.tolerance !== undefined) {
-    const t = Number(opts.tolerance);
-    if (isNaN(t)) {
-      return "Error: tolerance must be a number";
-    }
-    if (t < 0) {
-      return "Error: tolerance must be non-negative";
-    }
-  }
-
-  return null;
-}
-
-// --- Command builder ---
 
 function validateDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !isNaN(Date.parse(value));
@@ -80,23 +28,12 @@ function formatBars(bars: DailyBar[], fmt: Format): string {
 export function makeSignalCommand(): Command {
   const cmd = new Command("signal")
     .description("Evaluate a signal comparing two indicators")
-    .argument("<comparison>", "comparison operator: gt, lt, eq")
-    .argument("<indicator1>", 'first indicator spec (e.g. "price SPY")')
-    .argument("<indicator2>", 'second indicator spec (e.g. "sma SPY 200")')
-    .option("--tolerance <n>", "tolerance for comparison", "0")
+    .argument("<spec>", 'signal spec (e.g. "Price SPY > SMA SPY 200 ~2")')
     .option("--from <date>", "start date (YYYY-MM-DD)")
     .option("--to <date>", "end date (YYYY-MM-DD)")
     .option("--format <fmt>", "output format: table, json, csv", "table")
     .option("--latest", "show only the latest value")
-    .action(async (compArg: string, ind1Arg: string, ind2Arg: string, opts) => {
-      const validationError = validateSignalArgs(compArg, ind1Arg, ind2Arg, {
-        tolerance: opts.tolerance,
-      });
-      if (validationError) {
-        console.error(validationError);
-        process.exit(1);
-      }
-
+    .action(async (specArg: string, opts) => {
       if (opts.from && !validateDate(opts.from)) {
         console.error("Error: --from must be a valid date (YYYY-MM-DD)");
         process.exit(1);
@@ -112,6 +49,14 @@ export function makeSignalCommand(): Command {
         process.exit(1);
       }
 
+      let spec;
+      try {
+        spec = parseSignalSpec(specArg);
+      } catch (e) {
+        console.error(`Error: ${(e as Error).message}`);
+        process.exit(1);
+      }
+
       let env;
       try {
         env = readEnv();
@@ -120,10 +65,10 @@ export function makeSignalCommand(): Command {
         process.exit(1);
       }
 
-      const spec1 = parseIndicatorSpec(ind1Arg);
-      const spec2 = parseIndicatorSpec(ind2Arg);
-
-      if ((needsFredKey(spec1) || needsFredKey(spec2)) && !env.fredApiKey) {
+      if (
+        (needsFredKey(spec.indicator1) || needsFredKey(spec.indicator2)) &&
+        !env.fredApiKey
+      ) {
         console.error(
           "Error: FRED_API_KEY is required for treasury indicators",
         );
@@ -131,21 +76,9 @@ export function makeSignalCommand(): Command {
       }
 
       const client = buildClient(env);
-      const comp = resolveComparison(compArg)!;
-      const tolerance = Number(opts.tolerance);
 
       try {
-        const handle1 = buildIndicatorHandle(client, spec1);
-        const handle2 = buildIndicatorHandle(client, spec2);
-
-        let signalHandle;
-        if (comp === ">") {
-          signalHandle = client.gt(handle1, handle2, tolerance);
-        } else if (comp === "<") {
-          signalHandle = client.lt(handle1, handle2, tolerance);
-        } else {
-          signalHandle = client.eq(handle1, handle2, tolerance);
-        }
+        const signalHandle = buildSignalHandle(client, spec, spec.tolerance);
 
         if (opts.latest) {
           const val = await signalHandle.value();
