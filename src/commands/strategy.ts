@@ -1,4 +1,13 @@
-import { parseSignalSpec, type SignalSpec } from "../lib/parse.js";
+import { Command } from "commander";
+import { readEnv, buildClient } from "../lib/client.js";
+import {
+  parseSignalSpec,
+  buildSignalHandle,
+  needsFredKey,
+  type SignalSpec,
+} from "../lib/parse.js";
+import { parseTicker } from "./indicator.js";
+import type { LivefolioClient } from "@livefolio/sdk";
 
 // --- Types ---
 
@@ -87,4 +96,90 @@ export function parseStrategyJson(input: string): ParsedStrategy {
   }
 
   return { name: obj.name, freq, offset, rules };
+}
+
+function buildStrategyHandles(client: LivefolioClient, parsed: ParsedStrategy) {
+  const rules = parsed.rules.map((rule) => {
+    const when = rule.signals.map((sig) => buildSignalHandle(client, sig));
+
+    const holdPairs = Object.entries(rule.hold).map(([sym, weight]) => {
+      const { symbol, leverage } = parseTicker(sym);
+      return [client.ticker(symbol, leverage), weight] as [
+        ReturnType<LivefolioClient["ticker"]>,
+        number,
+      ];
+    });
+    const hold = client.allocation(...holdPairs);
+
+    return when.length > 0 ? { when, hold } : { hold };
+  });
+
+  return client.strategy({
+    name: parsed.name,
+    freq: parsed.freq as
+      | "Daily"
+      | "Weekly"
+      | "Monthly"
+      | "Quarterly"
+      | "Yearly",
+    offset: parsed.offset,
+    rules,
+  });
+}
+
+function makePostCommand(): Command {
+  return new Command("post")
+    .description("Create a strategy from JSON and print its link_id")
+    .argument("<json>", "strategy definition as simplified JSON")
+    .action(async (jsonArg: string) => {
+      let parsed: ParsedStrategy;
+      try {
+        parsed = parseStrategyJson(jsonArg);
+      } catch (e) {
+        console.error(`Error: ${(e as Error).message}`);
+        process.exit(1);
+      }
+
+      let env;
+      try {
+        env = readEnv();
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+
+      // Check FRED key for treasury indicators in signals
+      for (const rule of parsed.rules) {
+        for (const sig of rule.signals) {
+          if (needsFredKey(sig.indicator1) || needsFredKey(sig.indicator2)) {
+            if (!env.fredApiKey) {
+              console.error(
+                "Error: FRED_API_KEY is required for treasury indicators",
+              );
+              process.exit(1);
+            }
+          }
+        }
+      }
+
+      const client = buildClient(env);
+
+      try {
+        const strategy = buildStrategyHandles(client, parsed);
+        const row = await strategy.resolve();
+        console.log(row.link_id);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
+        console.error(`Error: ${msg}`);
+        process.exit(1);
+      }
+    });
+}
+
+export function makeStrategyCommand(): Command {
+  const cmd = new Command("strategy").description(
+    "Create, simulate, and inspect strategies",
+  );
+  cmd.addCommand(makePostCommand());
+  return cmd;
 }
