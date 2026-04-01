@@ -171,49 +171,55 @@ export function makeIndicatorCommand(): Command {
         const delay = Number(opts.delay);
         const delayOpt = delay > 0 ? { delay } : undefined;
 
-        let handle;
-        const tlSet = new Set<string>(TICKER_LOOKBACK_TYPES);
-        const toSet = new Set<string>(TICKER_ONLY_TYPES);
+        try {
+          let handle;
+          const tlSet = new Set<string>(TICKER_LOOKBACK_TYPES);
+          const toSet = new Set<string>(TICKER_ONLY_TYPES);
 
-        if (tlSet.has(type)) {
-          const t = client.ticker(ticker!);
-          const lb = Number(lookback);
-          const method = type.toLowerCase() as
-            | "sma"
-            | "ema"
-            | "rsi"
-            | "volatility"
-            | "drawdown";
-          if (type === "Return") {
-            handle = client.returns(t, lb, delayOpt);
+          if (tlSet.has(type)) {
+            const t = client.ticker(ticker!);
+            const lb = Number(lookback);
+            const method = type.toLowerCase() as
+              | "sma"
+              | "ema"
+              | "rsi"
+              | "volatility"
+              | "drawdown";
+            if (type === "Return") {
+              handle = client.returns(t, lb, delayOpt);
+            } else {
+              handle = client[method](t, lb, delayOpt);
+            }
+          } else if (toSet.has(type)) {
+            handle = client.price(client.ticker(ticker!), delayOpt);
+          } else if (type === "VIX") {
+            handle = client.vix(delayOpt);
+          } else if (type === "VIX3M") {
+            handle = client.vix3m(delayOpt);
           } else {
-            handle = client[method](t, lb, delayOpt);
+            handle = client.treasury(
+              type as Parameters<typeof client.treasury>[0],
+              delayOpt,
+            );
           }
-        } else if (toSet.has(type)) {
-          handle = client.price(client.ticker(ticker!), delayOpt);
-        } else if (type === "VIX") {
-          handle = client.vix(delayOpt);
-        } else if (type === "VIX3M") {
-          handle = client.vix3m(delayOpt);
-        } else {
-          handle = client.treasury(
-            type as Parameters<typeof client.treasury>[0],
-            delayOpt,
+
+          const range = {
+            ...(opts.from ? { from: opts.from } : {}),
+            ...(opts.to ? { to: opts.to } : {}),
+          };
+
+          const bars = await handle.series(
+            Object.keys(range).length > 0 ? range : undefined,
           );
-        }
 
-        const range = {
-          ...(opts.from ? { from: opts.from } : {}),
-          ...(opts.to ? { to: opts.to } : {}),
-        };
-
-        const bars = await handle.series(
-          Object.keys(range).length > 0 ? range : undefined,
-        );
-
-        const output = formatBars(bars, fmt);
-        if (output) {
-          console.log(output);
+          const output = formatBars(bars, fmt);
+          if (output) {
+            console.log(output);
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : JSON.stringify(e);
+          console.error(`Error: ${msg}`);
+          process.exit(1);
         }
       },
     );
