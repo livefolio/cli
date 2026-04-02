@@ -8,6 +8,7 @@ import {
   serializeSignalSpec,
   serializeHoldMap,
 } from "./strategy.js";
+import { parseSignalSpec } from "../lib/parse.js";
 
 describe("parseStrategyJson", () => {
   it("parses a valid strategy with all fields", () => {
@@ -545,4 +546,45 @@ describe("serializeHoldMap", () => {
       ]),
     ).toEqual({ SPY: 0.6, QQQ: 0.4 });
   });
+});
+
+describe("round-trip: parseSignalSpec → serializeSignalSpec", () => {
+  const cases = [
+    "SMA SPY 50 > SMA SPY 200",
+    "Price SPY > SMA SPY 200 ~2",
+    "RSI QQQ?L=3 10 > Threshold 80 ~2",
+    "RSI QQQ 10 < Threshold 30 ~2",
+    "VIX > Threshold 20",
+    "Price SPY @1 > SMA SPY 200 ~2",
+    "T10Y > Threshold 3.5",
+  ];
+
+  for (const input of cases) {
+    it(`round-trips "${input}"`, () => {
+      const parsed = parseSignalSpec(input);
+      const ind1 = {
+        type: parsed.indicator1.type,
+        ticker: parsed.indicator1.ticker ?? null,
+        lookback: parsed.indicator1.lookback ?? 0,
+        delay: parsed.indicator1.delay ?? 0,
+        leverage: parsed.indicator1.leverage ?? 1,
+        threshold: parsed.indicator1.value ?? null,
+      };
+      const ind2 = {
+        type: parsed.indicator2.type,
+        ticker: parsed.indicator2.ticker ?? null,
+        lookback: parsed.indicator2.lookback ?? 0,
+        delay: parsed.indicator2.delay ?? 0,
+        leverage: parsed.indicator2.leverage ?? 1,
+        threshold: parsed.indicator2.value ?? null,
+      };
+      const output = serializeSignalSpec(
+        ind1,
+        ind2,
+        parsed.comparison,
+        parsed.tolerance,
+      );
+      expect(output).toBe(input);
+    });
+  }
 });
