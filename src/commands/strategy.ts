@@ -250,6 +250,91 @@ export function serializeHoldMap(
   return result;
 }
 
+interface SerializableIndicatorHandle {
+  type: string;
+  ticker: { symbol: string; leverage: number } | null;
+  lookback: number;
+  delay: number;
+  threshold: number | null;
+}
+
+interface SerializableSignalHandle {
+  indicator1: SerializableIndicatorHandle;
+  indicator2: SerializableIndicatorHandle;
+  comparison: string;
+  tolerance: number;
+}
+
+interface SerializableAllocationHandle {
+  holdings: [{ symbol: string; leverage: number }, number][];
+}
+
+interface SerializableStrategyRule {
+  when?: SerializableSignalHandle[];
+  hold: SerializableAllocationHandle;
+}
+
+interface SerializableStrategyHandle {
+  name: string | null;
+  freq: string;
+  offset: number;
+  rules: SerializableStrategyRule[];
+}
+
+export function serializeStrategy(
+  strategy: SerializableStrategyHandle,
+): object {
+  const rules = strategy.rules.map((rule, i) => {
+    const isLast = i === strategy.rules.length - 1;
+
+    const holdMap = serializeHoldMap(
+      rule.hold.holdings.map(([ticker, weight]) => [
+        ticker.symbol,
+        weight,
+        ticker.leverage,
+      ]),
+    );
+
+    if (isLast || !rule.when || rule.when.length === 0) {
+      return { hold: holdMap };
+    }
+
+    const whenSpecs = rule.when.map((signal) => {
+      const ind1: SerializableIndicator = {
+        type: signal.indicator1.type,
+        ticker: signal.indicator1.ticker?.symbol ?? null,
+        lookback: signal.indicator1.lookback,
+        delay: signal.indicator1.delay,
+        leverage: signal.indicator1.ticker?.leverage ?? 1,
+        threshold: signal.indicator1.threshold,
+      };
+      const ind2: SerializableIndicator = {
+        type: signal.indicator2.type,
+        ticker: signal.indicator2.ticker?.symbol ?? null,
+        lookback: signal.indicator2.lookback,
+        delay: signal.indicator2.delay,
+        leverage: signal.indicator2.ticker?.leverage ?? 1,
+        threshold: signal.indicator2.threshold,
+      };
+      return serializeSignalSpec(
+        ind1,
+        ind2,
+        signal.comparison,
+        signal.tolerance,
+      );
+    });
+
+    return { when: whenSpecs, hold: holdMap };
+  });
+
+  return {
+    name: strategy.name,
+    freq: strategy.freq,
+    offset: strategy.offset,
+    rules,
+  };
+}
+
 function makePostCommand(): Command {
   return new Command("post")
     .description("Create a strategy from JSON and print its link_id")
@@ -383,8 +468,9 @@ function makeGetCommand(): Command {
 
       try {
         const strategy = client.strategy(linkId);
-        const row = await strategy.resolve();
-        console.log(JSON.stringify(row, null, 2));
+        await strategy.resolve();
+        const output = serializeStrategy(strategy);
+        console.log(JSON.stringify(output, null, 2));
       } catch (e) {
         const msg = e instanceof Error ? e.message : JSON.stringify(e);
         console.error(`Error: ${msg}`);
