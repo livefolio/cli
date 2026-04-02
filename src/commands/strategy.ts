@@ -325,6 +325,119 @@ function makeGetCommand(): Command {
     });
 }
 
+function makeSeriesCommand(): Command {
+  return new Command("series")
+    .description("Show allocation time-series for a strategy")
+    .argument("<link_id>", "strategy link_id")
+    .option("--from <date>", "start date (YYYY-MM-DD)")
+    .option("--to <date>", "end date (YYYY-MM-DD)")
+    .option("--changes-only", "only show rows where allocation changed", false)
+    .option("--format <fmt>", "output format", "table")
+    .addHelpText("after", "\nFormat choices: table, json, csv")
+    .action(async (linkId: string, opts) => {
+      if (opts.from && !validateDate(opts.from)) {
+        console.error("Error: --from must be a valid date (YYYY-MM-DD)");
+        process.exit(1);
+      }
+      if (opts.to && !validateDate(opts.to)) {
+        console.error("Error: --to must be a valid date (YYYY-MM-DD)");
+        process.exit(1);
+      }
+
+      const validFormats = new Set(["table", "json", "csv"]);
+      if (!validFormats.has(opts.format)) {
+        console.error(
+          `Error: --format must be one of: ${[...validFormats].join(", ")}`,
+        );
+        process.exit(1);
+      }
+
+      let env;
+      try {
+        env = readEnv();
+      } catch (e) {
+        console.error((e as Error).message);
+        process.exit(1);
+      }
+
+      const client = buildClient(env);
+
+      try {
+        const strategy = client.strategy(linkId);
+        const range: { from?: string; to?: string } = {};
+        if (opts.from) range.from = opts.from;
+        if (opts.to) range.to = opts.to;
+
+        const bars = await strategy.series(
+          Object.keys(range).length > 0 ? range : undefined,
+        );
+
+        if (bars.length === 0) {
+          console.error(
+            "Error: strategy has no series data. Run 'strategy run' first.",
+          );
+          process.exit(1);
+        }
+
+        // Extract holdings from each bar
+        let rows = bars.map((b) => ({
+          date: b.date,
+          holdings: b.allocation.holdings.map(
+            ([t, w]) =>
+              [{ symbol: t.symbol, leverage: t.leverage }, w] as [
+                { symbol: string; leverage: number },
+                number,
+              ],
+          ),
+        }));
+
+        if (opts.changesOnly) {
+          rows = filterChangesOnly(rows);
+        }
+
+        if (opts.format === "json") {
+          const jsonRows = rows.map((r) => {
+            const holdings: Record<string, number> = {};
+            for (const [t, w] of r.holdings) {
+              const key =
+                t.leverage !== 1 ? `${t.symbol}?L=${t.leverage}` : t.symbol;
+              holdings[key] = w;
+            }
+            return { date: r.date, holdings };
+          });
+          console.log(JSON.stringify(jsonRows, null, 2));
+        } else if (opts.format === "csv") {
+          console.log("date,allocation");
+          for (const row of rows) {
+            const alloc = formatHoldings(row.holdings);
+            console.log(`${row.date},"${alloc}"`);
+          }
+        } else {
+          // table format
+          const allocStrs = rows.map((r) => formatHoldings(r.holdings));
+          const allocWidth = Math.max(10, ...allocStrs.map((s) => s.length));
+          const dateWidth = 10;
+
+          const h = "─";
+          const top = `┌${h.repeat(dateWidth + 2)}┬${h.repeat(allocWidth + 2)}┐`;
+          const mid = `├${h.repeat(dateWidth + 2)}┼${h.repeat(allocWidth + 2)}┤`;
+          const bot = `└${h.repeat(dateWidth + 2)}┴${h.repeat(allocWidth + 2)}┘`;
+          const header = `│ ${"DATE".padEnd(dateWidth)} │ ${"ALLOCATION".padEnd(allocWidth)} │`;
+
+          const tableRows = rows.map(
+            (r, i) => `│ ${r.date} │ ${allocStrs[i].padEnd(allocWidth)} │`,
+          );
+
+          console.log([top, header, mid, ...tableRows, bot].join("\n"));
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : JSON.stringify(e);
+        console.error(`Error: ${msg}`);
+        process.exit(1);
+      }
+    });
+}
+
 export function makeStrategyCommand(): Command {
   const cmd = new Command("strategy").description(
     "Create, simulate, and inspect strategies",
@@ -332,5 +445,6 @@ export function makeStrategyCommand(): Command {
   cmd.addCommand(makePostCommand());
   cmd.addCommand(makeRunCommand());
   cmd.addCommand(makeGetCommand());
+  cmd.addCommand(makeSeriesCommand());
   return cmd;
 }
