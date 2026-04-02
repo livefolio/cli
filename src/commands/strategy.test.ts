@@ -3,6 +3,10 @@ import {
   parseStrategyJson,
   formatHoldings,
   filterChangesOnly,
+  serializeTickerSpec,
+  serializeIndicatorSpec,
+  serializeSignalSpec,
+  serializeHoldMap,
 } from "./strategy.js";
 
 describe("parseStrategyJson", () => {
@@ -258,5 +262,287 @@ describe("filterChangesOnly", () => {
     expect(result).toHaveLength(2);
     expect(result[0].date).toBe("2024-01-01");
     expect(result[1].date).toBe("2024-01-03");
+  });
+});
+
+describe("serializeTickerSpec", () => {
+  it("returns plain symbol when leverage is 1", () => {
+    expect(serializeTickerSpec("SPY", 1)).toBe("SPY");
+  });
+  it("appends ?L=N when leverage is not 1", () => {
+    expect(serializeTickerSpec("QQQ", 3)).toBe("QQQ?L=3");
+  });
+  it("appends ?L=N for leverage 2", () => {
+    expect(serializeTickerSpec("GLD", 2)).toBe("GLD?L=2");
+  });
+});
+
+describe("serializeIndicatorSpec", () => {
+  it("serializes ticker+lookback indicator", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "SMA",
+        ticker: "SPY",
+        lookback: 200,
+        delay: 0,
+        leverage: 1,
+      }),
+    ).toBe("SMA SPY 200");
+  });
+
+  it("serializes ticker+lookback with leverage", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "EMA",
+        ticker: "QQQ",
+        lookback: 50,
+        delay: 0,
+        leverage: 2,
+      }),
+    ).toBe("EMA QQQ?L=2 50");
+  });
+
+  it("serializes ticker-only indicator (Price)", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "Price",
+        ticker: "SPY",
+        lookback: 0,
+        delay: 0,
+        leverage: 1,
+      }),
+    ).toBe("Price SPY");
+  });
+
+  it("serializes standalone indicator (VIX)", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "VIX",
+        ticker: null,
+        lookback: 0,
+        delay: 0,
+        leverage: 1,
+      }),
+    ).toBe("VIX");
+  });
+
+  it("serializes standalone indicator (T10Y)", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "T10Y",
+        ticker: null,
+        lookback: 0,
+        delay: 0,
+        leverage: 1,
+      }),
+    ).toBe("T10Y");
+  });
+
+  it("serializes Threshold indicator", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "Threshold",
+        ticker: null,
+        lookback: 0,
+        delay: 0,
+        leverage: 1,
+        threshold: 20,
+      }),
+    ).toBe("Threshold 20");
+  });
+
+  it("serializes Threshold with decimal value", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "Threshold",
+        ticker: null,
+        lookback: 0,
+        delay: 0,
+        leverage: 1,
+        threshold: 4.5,
+      }),
+    ).toBe("Threshold 4.5");
+  });
+
+  it("appends @delay when delay is non-zero", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "RSI",
+        ticker: "SPY",
+        lookback: 14,
+        delay: 1,
+        leverage: 1,
+      }),
+    ).toBe("RSI SPY 14 @1");
+  });
+
+  it("appends @delay for negative delay", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "SMA",
+        ticker: "SPY",
+        lookback: 50,
+        delay: -1,
+        leverage: 1,
+      }),
+    ).toBe("SMA SPY 50 @-1");
+  });
+
+  it("omits delay when delay is zero", () => {
+    expect(
+      serializeIndicatorSpec({
+        type: "SMA",
+        ticker: "SPY",
+        lookback: 50,
+        delay: 0,
+        leverage: 1,
+      }),
+    ).toBe("SMA SPY 50");
+  });
+});
+
+describe("serializeSignalSpec", () => {
+  it("serializes basic signal with tolerance", () => {
+    const ind1 = {
+      type: "SMA",
+      ticker: "SPY",
+      lookback: 50,
+      delay: 0,
+      leverage: 1,
+    };
+    const ind2 = {
+      type: "SMA",
+      ticker: "SPY",
+      lookback: 200,
+      delay: 0,
+      leverage: 1,
+    };
+    expect(serializeSignalSpec(ind1, ind2, ">", 2)).toBe(
+      "SMA SPY 50 > SMA SPY 200 ~2",
+    );
+  });
+
+  it("omits tolerance when tolerance is zero", () => {
+    const ind1 = {
+      type: "SMA",
+      ticker: "SPY",
+      lookback: 50,
+      delay: 0,
+      leverage: 1,
+    };
+    const ind2 = {
+      type: "SMA",
+      ticker: "SPY",
+      lookback: 200,
+      delay: 0,
+      leverage: 1,
+    };
+    expect(serializeSignalSpec(ind1, ind2, ">", 0)).toBe(
+      "SMA SPY 50 > SMA SPY 200",
+    );
+  });
+
+  it("serializes signal with < comparison", () => {
+    const ind1 = {
+      type: "RSI",
+      ticker: "SPY",
+      lookback: 14,
+      delay: 0,
+      leverage: 1,
+    };
+    const ind2 = {
+      type: "Threshold",
+      ticker: null,
+      lookback: 0,
+      delay: 0,
+      leverage: 1,
+      threshold: 30,
+    };
+    expect(serializeSignalSpec(ind1, ind2, "<", 0)).toBe(
+      "RSI SPY 14 < Threshold 30",
+    );
+  });
+
+  it("serializes signal with = comparison", () => {
+    const ind1 = {
+      type: "VIX",
+      ticker: null,
+      lookback: 0,
+      delay: 0,
+      leverage: 1,
+    };
+    const ind2 = {
+      type: "Threshold",
+      ticker: null,
+      lookback: 0,
+      delay: 0,
+      leverage: 1,
+      threshold: 20,
+    };
+    expect(serializeSignalSpec(ind1, ind2, "=", 0)).toBe("VIX = Threshold 20");
+  });
+
+  it("serializes signal with leveraged ticker", () => {
+    const ind1 = {
+      type: "Price",
+      ticker: "QQQ",
+      lookback: 0,
+      delay: 0,
+      leverage: 3,
+    };
+    const ind2 = {
+      type: "SMA",
+      ticker: "QQQ",
+      lookback: 200,
+      delay: 0,
+      leverage: 1,
+    };
+    expect(serializeSignalSpec(ind1, ind2, ">", 0)).toBe(
+      "Price QQQ?L=3 > SMA QQQ 200",
+    );
+  });
+
+  it("serializes signal with delay on indicator", () => {
+    const ind1 = {
+      type: "Price",
+      ticker: "SPY",
+      lookback: 0,
+      delay: 1,
+      leverage: 1,
+    };
+    const ind2 = {
+      type: "SMA",
+      ticker: "SPY",
+      lookback: 200,
+      delay: 0,
+      leverage: 1,
+    };
+    expect(serializeSignalSpec(ind1, ind2, ">", 2)).toBe(
+      "Price SPY @1 > SMA SPY 200 ~2",
+    );
+  });
+});
+
+describe("serializeHoldMap", () => {
+  it("serializes single holding", () => {
+    expect(serializeHoldMap([["CASHX", 1, 1]])).toEqual({ CASHX: 1 });
+  });
+
+  it("serializes multiple holdings with leverage", () => {
+    expect(
+      serializeHoldMap([
+        ["SPY", 0.5, 3],
+        ["CASHX", 0.5, 1],
+      ]),
+    ).toEqual({ "SPY?L=3": 0.5, CASHX: 0.5 });
+  });
+
+  it("serializes holdings without leverage", () => {
+    expect(
+      serializeHoldMap([
+        ["SPY", 0.6, 1],
+        ["QQQ", 0.4, 1],
+      ]),
+    ).toEqual({ SPY: 0.6, QQQ: 0.4 });
   });
 });

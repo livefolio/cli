@@ -6,7 +6,11 @@ import {
   needsFredKey,
   type SignalSpec,
 } from "../lib/parse.js";
-import { parseTicker } from "./indicator.js";
+import {
+  parseTicker,
+  TICKER_LOOKBACK_TYPES,
+  TICKER_ONLY_TYPES,
+} from "./indicator.js";
 import type { LivefolioClient } from "@livefolio/sdk";
 
 // --- Types ---
@@ -178,6 +182,70 @@ export function filterChangesOnly<T extends SeriesRow>(bars: T[]): T[] {
       result.push(bars[i]);
       prevKey = key;
     }
+  }
+  return result;
+}
+
+// --- Serialization ---
+
+export interface SerializableIndicator {
+  type: string;
+  ticker: string | null;
+  lookback: number;
+  delay: number;
+  leverage: number;
+  threshold?: number | null;
+}
+
+const TICKER_LOOKBACK_SET = new Set<string>(TICKER_LOOKBACK_TYPES);
+const TICKER_ONLY_SET = new Set<string>(TICKER_ONLY_TYPES);
+
+export function serializeTickerSpec(symbol: string, leverage: number): string {
+  return leverage !== 1 ? `${symbol}?L=${leverage}` : symbol;
+}
+
+export function serializeIndicatorSpec(ind: SerializableIndicator): string {
+  const parts: string[] = [];
+
+  if (ind.type === "Threshold") {
+    parts.push("Threshold", String(ind.threshold));
+  } else if (TICKER_LOOKBACK_SET.has(ind.type)) {
+    parts.push(
+      ind.type,
+      serializeTickerSpec(ind.ticker!, ind.leverage),
+      String(ind.lookback),
+    );
+  } else if (TICKER_ONLY_SET.has(ind.type)) {
+    parts.push(ind.type, serializeTickerSpec(ind.ticker!, ind.leverage));
+  } else {
+    parts.push(ind.type);
+  }
+
+  if (ind.delay !== 0) {
+    parts.push(`@${ind.delay}`);
+  }
+
+  return parts.join(" ");
+}
+
+export function serializeSignalSpec(
+  indicator1: SerializableIndicator,
+  indicator2: SerializableIndicator,
+  comparison: string,
+  tolerance: number,
+): string {
+  const left = serializeIndicatorSpec(indicator1);
+  const right = serializeIndicatorSpec(indicator2);
+  const spec = `${left} ${comparison} ${right}`;
+  return tolerance !== 0 ? `${spec} ~${tolerance}` : spec;
+}
+
+export function serializeHoldMap(
+  holdings: [string, number, number][],
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  for (const [symbol, weight, leverage] of holdings) {
+    result[serializeTickerSpec(symbol, leverage)] = weight;
   }
   return result;
 }
