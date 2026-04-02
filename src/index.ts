@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { makeIndicatorCommand } from "./commands/indicator.js";
-import { makeSignalCommand } from "./commands/signal.js";
-import { makeStrategyCommand } from "./commands/strategy.js";
+import { makeIndicatorCommand } from "./commands/indicator";
+import { makeSignalCommand } from "./commands/signal";
+import { makeStrategyCommand } from "./commands/strategy";
 
 const program = new Command();
 

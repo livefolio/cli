@@ -4,7 +4,7 @@ import {
   TICKER_LOOKBACK_TYPES,
   TICKER_ONLY_TYPES,
   STANDALONE_TYPES,
-} from "../commands/indicator.js";
+} from "../commands/indicator";
 import type { LivefolioClient } from "@livefolio/sdk";
 
 // --- Threshold handling ---

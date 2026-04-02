@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseSignalSpec, parseIndicatorSpec } from "./parse.js";
+import { parseSignalSpec, parseIndicatorSpec } from "./parse";
 
 describe("parseIndicatorSpec", () => {
   it("parses delay on ticker-lookback indicator", () => {

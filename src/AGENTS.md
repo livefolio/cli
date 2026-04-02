@@ -23,7 +23,7 @@ All application source code for the CLI. Entry point registers three Commander.j
 
 ### Working In This Directory
 - `index.ts` should only register commands — keep command logic in `commands/`
-- All imports use `.js` extensions (ESM requirement)
+- Imports use extensionless paths (bundler module resolution via tsup)
 - Each command module exports a `make*Command()` factory function
 
 ### Testing Requirements

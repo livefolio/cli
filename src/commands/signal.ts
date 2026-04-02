@@ -1,12 +1,8 @@
 import { Command } from "commander";
 import type { DailyBar } from "@livefolio/sdk";
-import { readEnv, buildClient } from "../lib/client.js";
-import { formatTable, formatJson, formatCsv } from "../lib/format.js";
-import {
-  parseSignalSpec,
-  buildSignalHandle,
-  needsFredKey,
-} from "../lib/parse.js";
+import { readEnv, buildClient } from "../lib/client";
+import { formatTable, formatJson, formatCsv } from "../lib/format";
+import { parseSignalSpec, buildSignalHandle, needsFredKey } from "../lib/parse";
 
 function validateDate(value: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(value) && !isNaN(Date.parse(value));

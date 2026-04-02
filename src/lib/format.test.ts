@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { formatTable, formatJson, formatCsv } from "./format.js";
+import { formatTable, formatJson, formatCsv } from "./format";
 
 const bars = [
   { date: "2025-01-02", value: 478.32 },

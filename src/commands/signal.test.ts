@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseIndicatorSpec } from "../lib/parse.js";
+import { parseIndicatorSpec } from "../lib/parse";
 
 describe("parseIndicatorSpec", () => {
   it("parses standalone types", () => {

@@ -7,8 +7,8 @@ import {
   serializeIndicatorSpec,
   serializeSignalSpec,
   serializeHoldMap,
-} from "./strategy.js";
-import { parseSignalSpec } from "../lib/parse.js";
+} from "./strategy";
+import { parseSignalSpec } from "../lib/parse";
 
 describe("parseStrategyJson", () => {
   it("parses a valid strategy with all fields", () => {

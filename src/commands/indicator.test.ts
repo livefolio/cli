@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { resolveType, parseTicker } from "./indicator.js";
+import { resolveType, parseTicker } from "./indicator";
 
 describe("resolveType", () => {
   it("maps lowercase to SDK enum value", () => {

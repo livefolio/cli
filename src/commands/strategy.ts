@@ -1,16 +1,16 @@
 import { Command } from "commander";
-import { readEnv, buildClient } from "../lib/client.js";
+import { readEnv, buildClient } from "../lib/client";
 import {
   parseSignalSpec,
   buildSignalHandle,
   needsFredKey,
   type SignalSpec,
-} from "../lib/parse.js";
+} from "../lib/parse";
 import {
   parseTicker,
   TICKER_LOOKBACK_TYPES,
   TICKER_ONLY_TYPES,
-} from "./indicator.js";
+} from "./indicator";
 import type { LivefolioClient } from "@livefolio/sdk";
 
 // --- Types ---

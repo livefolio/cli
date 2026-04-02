@@ -10,7 +10,7 @@ Commander.js CLI for evaluating financial indicators, signals, and tactical allo
 | File | Description |
 |------|-------------|
 | `package.json` | Project manifest — `@livefolio/cli` v0.0.1, bin entry `livefolio` |
-| `tsconfig.json` | TypeScript strict mode, ES2022 target, NodeNext modules |
+| `tsconfig.json` | TypeScript strict mode, ES2022 target, bundler module resolution |
 | `vitest.config.ts` | Vitest test runner configuration |
 | `eslint.config.js` | ESLint + Prettier configuration |
 
@@ -25,7 +25,7 @@ Commander.js CLI for evaluating financial indicators, signals, and tactical allo
 ## For AI Agents
 
 ### Working In This Directory
-- This is an ESM project (`"type": "module"`) — all imports must use `.js` extensions
+- This is an ESM project (`"type": "module"`) — imports use extensionless paths (bundled by tsup)
 - TypeScript strict mode is enforced; do not use `any` without justification
 - The SDK dependency is a local file link (`file:../sdk`) — do not change it
 - Pre-commit hooks run ESLint + Prettier via husky/lint-staged
@@ -41,7 +41,7 @@ Commander.js CLI for evaluating financial indicators, signals, and tactical allo
 - `FRED_API_KEY` — required only for treasury indicator types (T3M, T10Y, etc.)
 
 ### Build & Run
-- `npm run build` compiles to `dist/`
+- `npm run build` bundles to `dist/` via tsup
 - `node dist/index.js <command>` or `npx livefolio <command>`
 
 ## Dependencies

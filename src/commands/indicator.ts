@@ -1,12 +1,12 @@
 import { Command } from "commander";
 import type { DailyBar } from "@livefolio/sdk";
-import { readEnv, buildClient } from "../lib/client.js";
-import { formatTable, formatJson, formatCsv } from "../lib/format.js";
+import { readEnv, buildClient } from "../lib/client";
+import { formatTable, formatJson, formatCsv } from "../lib/format";
 import {
   parseIndicatorSpec,
   buildIndicatorHandle,
   needsFredKey,
-} from "../lib/parse.js";
+} from "../lib/parse";
 
 export const TICKER_LOOKBACK_TYPES = [
   "SMA",
