@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
-import { parseStrategyJson, formatHoldings } from "./strategy.js";
+import {
+  parseStrategyJson,
+  formatHoldings,
+  filterChangesOnly,
+} from "./strategy.js";
 
 describe("parseStrategyJson", () => {
   it("parses a valid strategy with all fields", () => {
@@ -201,5 +205,58 @@ describe("formatHoldings", () => {
       [{ symbol: "QQQ", leverage: 1 }, 0.667],
     ];
     expect(formatHoldings(holdings)).toBe("SPY:33%, QQQ:67%");
+  });
+});
+
+describe("filterChangesOnly", () => {
+  function bar(
+    date: string,
+    holdings: [{ symbol: string; leverage: number }, number][],
+  ) {
+    return { date, holdings };
+  }
+
+  it("returns empty array for empty input", () => {
+    expect(filterChangesOnly([])).toEqual([]);
+  });
+
+  it("always includes the first row", () => {
+    const bars = [bar("2024-01-01", [[{ symbol: "SPY", leverage: 1 }, 1]])];
+    expect(filterChangesOnly(bars)).toEqual(bars);
+  });
+
+  it("filters out consecutive identical allocations", () => {
+    const h = [[{ symbol: "SPY", leverage: 1 }, 1]] as [
+      { symbol: string; leverage: number },
+      number,
+    ][];
+    const bars = [
+      bar("2024-01-01", h),
+      bar("2024-01-02", h),
+      bar("2024-01-03", h),
+    ];
+    const result = filterChangesOnly(bars);
+    expect(result).toHaveLength(1);
+    expect(result[0].date).toBe("2024-01-01");
+  });
+
+  it("includes rows where allocation changes", () => {
+    const h1 = [[{ symbol: "SPY", leverage: 1 }, 1]] as [
+      { symbol: string; leverage: number },
+      number,
+    ][];
+    const h2 = [[{ symbol: "CASHX", leverage: 1 }, 1]] as [
+      { symbol: string; leverage: number },
+      number,
+    ][];
+    const bars = [
+      bar("2024-01-01", h1),
+      bar("2024-01-02", h1),
+      bar("2024-01-03", h2),
+    ];
+    const result = filterChangesOnly(bars);
+    expect(result).toHaveLength(2);
+    expect(result[0].date).toBe("2024-01-01");
+    expect(result[1].date).toBe("2024-01-03");
   });
 });

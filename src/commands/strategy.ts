@@ -151,6 +151,37 @@ export function formatHoldings(
     .join(", ");
 }
 
+interface SeriesRow {
+  date: string;
+  holdings: [{ symbol: string; leverage: number }, number][];
+}
+
+function holdingsKey(
+  holdings: [{ symbol: string; leverage: number }, number][],
+): string {
+  return holdings
+    .map(([t, w]) => {
+      const label = t.leverage !== 1 ? `${t.symbol}?L=${t.leverage}` : t.symbol;
+      return `${label}=${w}`;
+    })
+    .sort()
+    .join("|");
+}
+
+export function filterChangesOnly<T extends SeriesRow>(bars: T[]): T[] {
+  if (bars.length === 0) return [];
+  const result: T[] = [bars[0]];
+  let prevKey = holdingsKey(bars[0].holdings);
+  for (let i = 1; i < bars.length; i++) {
+    const key = holdingsKey(bars[i].holdings);
+    if (key !== prevKey) {
+      result.push(bars[i]);
+      prevKey = key;
+    }
+  }
+  return result;
+}
+
 function makePostCommand(): Command {
   return new Command("post")
     .description("Create a strategy from JSON and print its link_id")
