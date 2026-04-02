@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { parseStrategyJson } from "./strategy.js";
+import { parseStrategyJson, formatHoldings } from "./strategy.js";
 
 describe("parseStrategyJson", () => {
   it("parses a valid strategy with all fields", () => {
@@ -168,5 +168,38 @@ describe("parseStrategyJson", () => {
     });
     const result = parseStrategyJson(input);
     expect(result.rules[0].signals).toHaveLength(2);
+  });
+});
+
+describe("formatHoldings", () => {
+  it("formats single holding as TICKER:NN%", () => {
+    const holdings: [{ symbol: string; leverage: number }, number][] = [
+      [{ symbol: "CASHX", leverage: 1 }, 1],
+    ];
+    expect(formatHoldings(holdings)).toBe("CASHX:100%");
+  });
+
+  it("formats multiple holdings joined by comma-space", () => {
+    const holdings: [{ symbol: string; leverage: number }, number][] = [
+      [{ symbol: "AAPL", leverage: 1 }, 0.6],
+      [{ symbol: "MSFT", leverage: 1 }, 0.4],
+    ];
+    expect(formatHoldings(holdings)).toBe("AAPL:60%, MSFT:40%");
+  });
+
+  it("includes leverage when not 1", () => {
+    const holdings: [{ symbol: string; leverage: number }, number][] = [
+      [{ symbol: "SPY", leverage: 3 }, 0.5],
+      [{ symbol: "CASHX", leverage: 1 }, 0.5],
+    ];
+    expect(formatHoldings(holdings)).toBe("SPY?L=3:50%, CASHX:50%");
+  });
+
+  it("rounds percentages to nearest integer", () => {
+    const holdings: [{ symbol: string; leverage: number }, number][] = [
+      [{ symbol: "SPY", leverage: 1 }, 0.333],
+      [{ symbol: "QQQ", leverage: 1 }, 0.667],
+    ];
+    expect(formatHoldings(holdings)).toBe("SPY:33%, QQQ:67%");
   });
 });

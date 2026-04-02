@@ -137,6 +137,20 @@ function buildStrategyHandles(client: LivefolioClient, parsed: ParsedStrategy) {
   });
 }
 
+export function formatHoldings(
+  holdings: [{ symbol: string; leverage: number }, number][],
+): string {
+  return holdings
+    .map(([ticker, weight]) => {
+      const label =
+        ticker.leverage !== 1
+          ? `${ticker.symbol}?L=${ticker.leverage}`
+          : ticker.symbol;
+      return `${label}:${Math.round(weight * 100)}%`;
+    })
+    .join(", ");
+}
+
 function makePostCommand(): Command {
   return new Command("post")
     .description("Create a strategy from JSON and print its link_id")
