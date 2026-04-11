@@ -1,10 +1,7 @@
 import { createClient as createSupabaseClient } from "@supabase/supabase-js";
-import {
-  createClient,
-  type LivefolioClient,
-  type TypedSupabaseClient,
-  type Database,
-} from "@livefolio/sdk";
+import { createClient, type LivefolioClient } from "@livefolio/sdk";
+import { createYahooFredMarket } from "@livefolio/market";
+import { createSupabaseStorage, type Database } from "@livefolio/storage";
 
 export interface EnvConfig {
   supabaseUrl: string;
@@ -36,6 +33,9 @@ export function buildClient(env: EnvConfig): LivefolioClient {
   const supabase = createSupabaseClient<Database>(
     env.supabaseUrl,
     env.supabaseKey,
-  ) as unknown as TypedSupabaseClient;
-  return createClient({ supabase, fredApiKey: env.fredApiKey });
+  );
+  const storage = createSupabaseStorage(supabase);
+  const market = createYahooFredMarket({ fredApiKey: env.fredApiKey! });
+
+  return createClient({ storage, market });
 }
