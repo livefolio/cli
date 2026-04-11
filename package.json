@@ -45,7 +45,9 @@
     "vitest": "^3"
   },
   "dependencies": {
+    "@livefolio/market": "file:../market",
     "@livefolio/sdk": "file:../sdk",
+    "@livefolio/storage": "file:../storage",
     "@supabase/supabase-js": "^2.101.1",
     "commander": "^13"
   }
